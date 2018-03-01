@@ -7,11 +7,14 @@
  */
 
 import {OverlayRef, GlobalPositionStrategy} from '@angular/cdk/overlay';
+import {ESCAPE} from '@angular/cdk/keycodes';
+import {Location} from '@angular/common';
 import {filter} from 'rxjs/operators/filter';
 import {take} from 'rxjs/operators/take';
 import {DialogPosition} from './dialog-config';
 import {Observable} from 'rxjs/Observable';
 import {Subject} from 'rxjs/Subject';
+import {Subscription, ISubscription} from 'rxjs/Subscription';
 import {MatDialogContainer} from './dialog-container';
 
 
@@ -28,24 +31,31 @@ export class MatDialogRef<T, R = any> {
   componentInstance: T;
 
   /** Whether the user is allowed to close the dialog. */
-  disableClose = this._containerInstance._config.disableClose;
+  disableClose: boolean | undefined = this._containerInstance._config.disableClose;
 
   /** Subject for notifying the user that the dialog has finished opening. */
-  private _afterOpen = new Subject<void>();
+  private readonly _afterOpen = new Subject<void>();
 
   /** Subject for notifying the user that the dialog has finished closing. */
-  private _afterClosed = new Subject<R | undefined>();
+  private readonly _afterClosed = new Subject<R | undefined>();
 
   /** Subject for notifying the user that the dialog has started closing. */
-  private _beforeClose = new Subject<R | undefined>();
+  private readonly _beforeClose = new Subject<R | undefined>();
 
   /** Result to be passed to afterClosed. */
   private _result: R | undefined;
 
+  /** Subscription to changes in the user's location. */
+  private _locationChanges: ISubscription = Subscription.EMPTY;
+
   constructor(
     private _overlayRef: OverlayRef,
-    private _containerInstance: MatDialogContainer,
+    public _containerInstance: MatDialogContainer,
+    location?: Location,
     readonly id: string = `mat-dialog-${uniqueId++}`) {
+
+    // Pass the id along to the container.
+    _containerInstance._id = id;
 
     // Emit when opening animation completes
     _containerInstance._animationStateChanged.pipe(
@@ -64,10 +74,26 @@ export class MatDialogRef<T, R = any> {
     )
     .subscribe(() => {
       this._overlayRef.dispose();
+      this._locationChanges.unsubscribe();
       this._afterClosed.next(this._result);
       this._afterClosed.complete();
       this.componentInstance = null!;
     });
+
+    _overlayRef.keydownEvents()
+      .pipe(filter(event => event.keyCode === ESCAPE && !this.disableClose))
+      .subscribe(() => this.close());
+
+    if (location) {
+      // Close the dialog when the user goes forwards/backwards in history or when the location
+      // hash changes. Note that this usually doesn't include clicking on links (unless the user
+      // is using the `HashLocationStrategy`).
+      this._locationChanges = location.subscribe(() => {
+        if (this._containerInstance._config.closeOnNavigation) {
+          this.close();
+        }
+      });
+    }
   }
 
   /**
@@ -115,7 +141,7 @@ export class MatDialogRef<T, R = any> {
   /**
    * Gets an observable that emits when the overlay's backdrop has been clicked.
    */
-  backdropClick(): Observable<void> {
+  backdropClick(): Observable<MouseEvent> {
     return this._overlayRef.backdropClick();
   }
 

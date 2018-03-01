@@ -3,7 +3,7 @@
     <button mat-button class="mat-calendar-period-button"
             (click)="_currentPeriodClicked()"  [attr.aria-label]="_periodButtonLabel">
       {{_periodButtonText}}
-      <div class="mat-calendar-arrow" [class.mat-calendar-invert]="!_monthView"></div>
+      <div class="mat-calendar-arrow" [class.mat-calendar-invert]="_currentView != 'month'"></div>
     </button>
 
     <div class="mat-calendar-spacer"></div>
@@ -20,22 +20,37 @@
   </div>
 </div>
 
-<div class="mat-calendar-content" (keydown)="_handleCalendarBodyKeydown($event)"
-    [ngSwitch]="_monthView" cdkMonitorSubtreeFocus>
+<div class="mat-calendar-content" [ngSwitch]="_currentView" cdkMonitorSubtreeFocus tabindex="-1">
   <mat-month-view
-      *ngSwitchCase="true"
-      [activeDate]="_activeDate"
+      *ngSwitchCase="'month'"
+      [(activeDate)]="_activeDate"
       [selected]="selected"
-      [dateFilter]="_dateFilterForViews"
+      [dateFilter]="dateFilter"
+      [maxDate]="maxDate"
+      [minDate]="minDate"
       (selectedChange)="_dateSelected($event)"
       (_userSelection)="_userSelected()">
   </mat-month-view>
 
   <mat-year-view
-      *ngSwitchDefault
+      *ngSwitchCase="'year'"
       [activeDate]="_activeDate"
       [selected]="selected"
-      [dateFilter]="_dateFilterForViews"
-      (selectedChange)="_monthSelected($event)">
+      [dateFilter]="dateFilter"
+      [maxDate]="maxDate"
+      [minDate]="minDate"
+      (monthSelected)="_monthSelectedInYearView($event)"
+      (selectedChange)="_goToDateInView($event, 'month')">
   </mat-year-view>
+
+  <mat-multi-year-view
+      *ngSwitchCase="'multi-year'"
+      [activeDate]="_activeDate"
+      [selected]="selected"
+      [dateFilter]="dateFilter"
+      [maxDate]="maxDate"
+      [minDate]="minDate"
+      (yearSelected)="_yearSelectedInMultiYearView($event)"
+      (selectedChange)="_goToDateInView($event, 'year')">
+  </mat-multi-year-view>
 </div>

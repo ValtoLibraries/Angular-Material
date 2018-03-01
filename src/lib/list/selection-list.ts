@@ -9,7 +9,7 @@
 import {FocusableOption, FocusKeyManager} from '@angular/cdk/a11y';
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {SelectionModel} from '@angular/cdk/collections';
-import {SPACE, ENTER} from '@angular/cdk/keycodes';
+import {SPACE, ENTER, HOME, END} from '@angular/cdk/keycodes';
 import {
   AfterContentInit,
   Attribute,
@@ -24,28 +24,26 @@ import {
   Input,
   OnDestroy,
   OnInit,
-  Optional,
   Output,
   QueryList,
+  ViewChild,
   ViewEncapsulation,
 } from '@angular/core';
 import {
   CanDisable,
   CanDisableRipple,
-  HasTabIndex,
   MatLine,
   MatLineSetter,
   mixinDisabled,
   mixinDisableRipple,
-  mixinTabIndex,
 } from '@angular/material/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
+import {Subscription} from 'rxjs/Subscription';
 
 
 /** @docs-private */
 export class MatSelectionListBase {}
-export const _MatSelectionListMixinBase =
-  mixinTabIndex(mixinDisableRipple(mixinDisabled(MatSelectionListBase)));
+export const _MatSelectionListMixinBase = mixinDisableRipple(mixinDisabled(MatSelectionListBase));
 
 /** @docs-private */
 export class MatListOptionBase {}
@@ -61,6 +59,7 @@ export const MAT_SELECTION_LIST_VALUE_ACCESSOR: any = {
 /**
  * Change event object emitted by MatListOption whenever the selected state changes.
  * @deprecated Use the `MatSelectionListChange` event on the selection list instead.
+ * @deletion-target 6.0.0
  */
 export class MatListOptionChange {
   constructor(
@@ -109,14 +108,16 @@ export class MatSelectionListChange {
 export class MatListOption extends _MatListOptionMixinBase
     implements AfterContentInit, OnDestroy, OnInit, FocusableOption, CanDisableRipple {
 
-  private _lineSetter: MatLineSetter;
-  private _selected: boolean = false;
-  private _disabled: boolean = false;
+  private _selected = false;
+  private _disabled = false;
 
   /** Whether the option has focus. */
   _hasFocus: boolean = false;
 
   @ContentChildren(MatLine) _lines: QueryList<MatLine>;
+
+  /** DOM element containing the item's text. */
+  @ViewChild('text') _text: ElementRef;
 
   /** Whether the label should appear before or after the checkbox. Defaults to 'after' */
   @Input() checkboxPosition: 'before' | 'after' = 'after';
@@ -126,7 +127,7 @@ export class MatListOption extends _MatListOptionMixinBase
 
   /** Whether the option is disabled. */
   @Input()
-  get disabled() { return (this.selectionList && this.selectionList.disabled) || this._disabled; }
+  get disabled() { return this._disabled || (this.selectionList && this.selectionList.disabled); }
   set disabled(value: any) {
     const newValue = coerceBooleanProperty(value);
 
@@ -151,33 +152,47 @@ export class MatListOption extends _MatListOptionMixinBase
   /**
    * Emits a change event whenever the selected state of an option changes.
    * @deprecated Use the `selectionChange` event on the `<mat-selection-list>` instead.
+   * @deletion-target 6.0.0
    */
-  @Output() selectionChange: EventEmitter<MatListOptionChange> =
+  @Output() readonly selectionChange: EventEmitter<MatListOptionChange> =
     new EventEmitter<MatListOptionChange>();
 
   constructor(private _element: ElementRef,
               private _changeDetector: ChangeDetectorRef,
-              @Optional() @Inject(forwardRef(() => MatSelectionList))
-              public selectionList: MatSelectionList) {
+              /** @docs-private */
+              @Inject(forwardRef(() => MatSelectionList)) public selectionList: MatSelectionList) {
     super();
   }
 
   ngOnInit() {
-    if (this.selected) {
-      // List options that are selected at initialization can't be reported properly to the form
-      // control. This is because it takes some time until the selection-list knows about all
-      // available options. Also it can happen that the ControlValueAccessor has an initial value
-      // that should be used instead. Deferring the value change report to the next tick ensures
-      // that the form control value is not being overwritten.
-      Promise.resolve(() => this.selected && this.selectionList._reportValueChange());
-    }
+    // List options that are selected at initialization can't be reported properly to the form
+    // control. This is because it takes some time until the selection-list knows about all
+    // available options. Also it can happen that the ControlValueAccessor has an initial value
+    // that should be used instead. Deferring the value change report to the next tick ensures
+    // that the form control value is not being overwritten.
+    const wasSelected = this._selected;
+
+    Promise.resolve().then(() => {
+      if (this._selected || wasSelected) {
+        this.selected = true;
+        this._changeDetector.markForCheck();
+      }
+    });
   }
 
   ngAfterContentInit() {
-    this._lineSetter = new MatLineSetter(this._lines, this._element);
+    // TODO: consider turning the setter into a function, it doesn't do anything as a class.
+    // tslint:disable-next-line:no-unused-expression
+    new MatLineSetter(this._lines, this._element);
   }
 
   ngOnDestroy(): void {
+    if (this.selected) {
+      // We have to delay this until the next tick in order
+      // to avoid changed after checked errors.
+      Promise.resolve().then(() => this.selected = false);
+    }
+
     this.selectionList._removeOptionFromList(this);
   }
 
@@ -191,7 +206,15 @@ export class MatListOption extends _MatListOptionMixinBase
     this._element.nativeElement.focus();
   }
 
-  /** Whether this list item should show a ripple effect when clicked.  */
+  /**
+   * Returns the list item's text label. Implemented as a part of the FocusKeyManager.
+   * @docs-private
+   */
+  getLabel() {
+    return this._text ? this._text.nativeElement.textContent : '';
+  }
+
+  /** Whether this list item should show a ripple effect when clicked. */
   _isRippleDisabled() {
     return this.disabled || this.disableRipple || this.selectionList.disableRipple;
   }
@@ -215,7 +238,7 @@ export class MatListOption extends _MatListOptionMixinBase
 
   _handleBlur() {
     this._hasFocus = false;
-    this.selectionList.onTouched();
+    this.selectionList._onTouched();
   }
 
   /** Retrieves the DOM element of the component host. */
@@ -261,9 +284,10 @@ export class MatListOption extends _MatListOptionMixinBase
     '[tabIndex]': 'tabIndex',
     'class': 'mat-selection-list',
     '(focus)': 'focus()',
-    '(blur)': 'onTouched()',
+    '(blur)': '_onTouched()',
     '(keydown)': '_keydown($event)',
-    '[attr.aria-disabled]': 'disabled.toString()'},
+    '[attr.aria-disabled]': 'disabled.toString()',
+  },
   template: '<ng-content></ng-content>',
   styleUrls: ['list.css'],
   encapsulation: ViewEncapsulation.None,
@@ -272,7 +296,7 @@ export class MatListOption extends _MatListOptionMixinBase
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class MatSelectionList extends _MatSelectionListMixinBase implements FocusableOption,
-    CanDisable, CanDisableRipple, HasTabIndex, AfterContentInit, ControlValueAccessor {
+    CanDisable, CanDisableRipple, AfterContentInit, ControlValueAccessor, OnDestroy {
 
   /** The FocusKeyManager which handles focus. */
   _keyManager: FocusKeyManager<MatListOption>;
@@ -281,8 +305,11 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
   @ContentChildren(MatListOption) options: QueryList<MatListOption>;
 
   /** Emits a change event whenever the selected state of an option changes. */
-  @Output() selectionChange: EventEmitter<MatSelectionListChange> =
+  @Output() readonly selectionChange: EventEmitter<MatSelectionListChange> =
       new EventEmitter<MatSelectionListChange>();
+
+  /** Tabindex of the selection list. */
+  @Input() tabIndex: number = 0;
 
   /** The currently selected options. */
   selectedOptions: SelectionModel<MatListOption> = new SelectionModel<MatListOption>(true);
@@ -290,8 +317,13 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
   /** View to model callback that should be called whenever the selected options change. */
   private _onChange: (value: any) => void = (_: any) => {};
 
+  /** Used for storing the values that were assigned before the options were initialized. */
+  private _tempValues: string[]|null;
+
+  private _modelChanges = Subscription.EMPTY;
+
   /** View to model callback that should be called if the list or its options lost focus. */
-  onTouched: () => void = () => {};
+  _onTouched: () => void = () => {};
 
   constructor(private _element: ElementRef, @Attribute('tabindex') tabIndex: string) {
     super();
@@ -300,10 +332,39 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
   }
 
   ngAfterContentInit(): void {
-    this._keyManager = new FocusKeyManager<MatListOption>(this.options).withWrap();
+    this._keyManager = new FocusKeyManager<MatListOption>(this.options)
+      .withWrap()
+      .withTypeAhead()
+      // Allow disabled items to be focusable. For accessibility reasons, there must be a way for
+      // screenreader users, that allows reading the different options of the list.
+      .skipPredicate(() => false);
+
+    if (this._tempValues) {
+      this._setOptionsFromValues(this._tempValues);
+      this._tempValues = null;
+    }
+
+    // Sync external changes to the model back to the options.
+    this._modelChanges = this.selectedOptions.onChange!.subscribe(event => {
+      if (event.added) {
+        for (let item of event.added) {
+          item.selected = true;
+        }
+      }
+
+      if (event.removed) {
+        for (let item of event.removed) {
+          item.selected = false;
+        }
+      }
+    });
   }
 
-  /** Focus the selection-list. */
+  ngOnDestroy() {
+    this._modelChanges.unsubscribe();
+  }
+
+  /** Focuses the last active list option. */
   focus() {
     this._element.nativeElement.focus();
   }
@@ -344,8 +405,17 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
     switch (event.keyCode) {
       case SPACE:
       case ENTER:
-        this._toggleSelectOnFocusedOption();
-        // Always prevent space from scrolling the page since the list has focus
+        if (!this.disabled) {
+          this._toggleSelectOnFocusedOption();
+
+          // Always prevent space from scrolling the page since the list has focus
+          event.preventDefault();
+        }
+        break;
+      case HOME:
+      case END:
+        event.keyCode === HOME ? this._keyManager.setFirstItemActive() :
+                                 this._keyManager.setLastItemActive();
         event.preventDefault();
         break;
       default:
@@ -369,6 +439,8 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
   writeValue(values: string[]): void {
     if (this.options) {
       this._setOptionsFromValues(values || []);
+    } else {
+      this._tempValues = values;
     }
   }
 
@@ -386,7 +458,7 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
 
   /** Implemented as part of ControlValueAccessor. */
   registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
+    this._onTouched = fn;
   }
 
   /** Returns the option with the specified value. */

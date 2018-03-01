@@ -7,13 +7,19 @@
  */
 
 import {
-  ChangeDetectionStrategy, ChangeDetectorRef,
-  Component, ContentChild,
-  ContentChildren, forwardRef, Inject, Input,
-  ViewEncapsulation
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ContentChild,
+  ContentChildren,
+  forwardRef,
+  Inject,
+  Input,
+  ViewEncapsulation,
+  QueryList,
 } from '@angular/core';
 import {MatDrawer, MatDrawerContainer, MatDrawerContent} from './drawer';
-import {animate, state, style, transition, trigger} from '@angular/animations';
+import {matDrawerAnimations} from './drawer-animations';
 import {coerceBooleanProperty, coerceNumberProperty} from '@angular/cdk/coercion';
 
 
@@ -44,27 +50,13 @@ export class MatSidenavContent extends MatDrawerContent {
   selector: 'mat-sidenav',
   exportAs: 'matSidenav',
   template: '<ng-content></ng-content>',
-  animations: [
-    trigger('transform', [
-      state('open, open-instant', style({
-        transform: 'translate3d(0, 0, 0)',
-        visibility: 'visible',
-      })),
-      state('void', style({
-        visibility: 'hidden',
-      })),
-      transition('void => open-instant', animate('0ms')),
-      transition('void <=> open, open-instant => void',
-        animate('400ms cubic-bezier(0.25, 0.8, 0.25, 1)'))
-    ])
-  ],
+  animations: [matDrawerAnimations.transformDrawer],
   host: {
     'class': 'mat-drawer mat-sidenav',
     'tabIndex': '-1',
     '[@transform]': '_animationState',
     '(@transform.start)': '_onAnimationStart($event)',
     '(@transform.done)': '_onAnimationEnd($event)',
-    '(keydown)': 'handleKeydown($event)',
     // must prevent the browser from aligning text based on value
     '[attr.align]': 'null',
     '[class.mat-drawer-end]': 'position === "end"',
@@ -120,7 +112,6 @@ export class MatSidenav extends MatDrawer {
   preserveWhitespaces: false,
 })
 export class MatSidenavContainer extends MatDrawerContainer {
-  @ContentChildren(MatSidenav) _drawers;
-
-  @ContentChild(MatSidenavContent) _content;
+  @ContentChildren(MatSidenav) _drawers: QueryList<MatSidenav>;
+  @ContentChild(MatSidenavContent) _content: MatSidenavContent;
 }

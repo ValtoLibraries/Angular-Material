@@ -27,7 +27,16 @@ import {
   OnChanges,
   OnDestroy
 } from '@angular/core';
-import {LEFT_ARROW, RIGHT_ARROW, ENTER, SPACE} from '@angular/cdk/keycodes';
+import {
+  LEFT_ARROW,
+  RIGHT_ARROW,
+  DOWN_ARROW,
+  UP_ARROW,
+  ENTER,
+  SPACE,
+  HOME,
+  END,
+} from '@angular/cdk/keycodes';
 import {CdkStepLabel} from './step-label';
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {AbstractControl} from '@angular/forms';
@@ -42,6 +51,9 @@ let nextId = 0;
  * the content into correct position upon step selection change.
  */
 export type StepContentPositionState = 'previous' | 'current' | 'next';
+
+/** Possible orientation of a stepper. */
+export type StepperOrientation = 'horizontal' | 'vertical';
 
 /** Change event emitted on selection changes. */
 export class StepperSelectionEvent {
@@ -120,6 +132,19 @@ export class CdkStep implements OnChanges {
     this._stepper.selected = this;
   }
 
+  /** Resets the step to its initial state. Note that this includes resetting form data. */
+  reset(): void {
+    this.interacted = false;
+
+    if (this._customCompleted != null) {
+      this._customCompleted = false;
+    }
+
+    if (this.stepControl) {
+      this.stepControl.reset();
+    }
+  }
+
   ngOnChanges() {
     // Since basically all inputs of the MatStep get proxied through the view down to the
     // underlying MatStepHeader, we have to make sure that change detection runs correctly.
@@ -152,6 +177,11 @@ export class CdkStepper implements OnDestroy {
   get selectedIndex() { return this._selectedIndex; }
   set selectedIndex(index: number) {
     if (this._steps) {
+      // Ensure that the index can't be out of bounds.
+      if (index < 0 || index > this._steps.length - 1) {
+        throw Error('cdkStepper: Cannot assign out-of-bounds value to `selectedIndex`.');
+      }
+
       if (this._anyControlsInvalidOrPending(index) || index < this._selectedIndex &&
           !this._steps.toArray()[index].editable) {
         // remove focus from clicked step header if the step is not able to be selected
@@ -164,23 +194,26 @@ export class CdkStepper implements OnDestroy {
       this._selectedIndex = this._focusIndex = index;
     }
   }
-  private _selectedIndex: number = 0;
+  private _selectedIndex = 0;
 
   /** The step that is selected. */
   @Input()
-  get selected() { return this._steps.toArray()[this.selectedIndex]; }
+  get selected(): CdkStep { return this._steps.toArray()[this.selectedIndex]; }
   set selected(step: CdkStep) {
     this.selectedIndex = this._steps.toArray().indexOf(step);
   }
 
   /** Event emitted when the selected step has changed. */
-  @Output() selectionChange = new EventEmitter<StepperSelectionEvent>();
+  @Output() selectionChange: EventEmitter<StepperSelectionEvent>
+      = new EventEmitter<StepperSelectionEvent>();
 
   /** The index of the step that the focus can be set. */
   _focusIndex: number = 0;
 
   /** Used to track unique ID for each stepper component. */
   _groupId: number;
+
+  protected _orientation: StepperOrientation = 'horizontal';
 
   constructor(
     @Optional() private _dir: Directionality,
@@ -201,6 +234,13 @@ export class CdkStepper implements OnDestroy {
   /** Selects and focuses the previous step in list. */
   previous(): void {
     this.selectedIndex = Math.max(this._selectedIndex - 1, 0);
+  }
+
+  /** Resets the stepper to its initial state. Note that this includes clearing form data. */
+  reset(): void {
+    this.selectedIndex = 0;
+    this._steps.forEach(step => step.reset());
+    this._stateChanged();
   }
 
   /** Returns a unique id for each step label element. */
@@ -252,30 +292,40 @@ export class CdkStepper implements OnDestroy {
   }
 
   _onKeydown(event: KeyboardEvent) {
-    switch (event.keyCode) {
-      case RIGHT_ARROW:
-        if (this._layoutDirection() === 'rtl') {
-          this._focusPreviousStep();
-        } else {
-          this._focusNextStep();
-        }
-        break;
-      case LEFT_ARROW:
-        if (this._layoutDirection() === 'rtl') {
-          this._focusNextStep();
-        } else {
-          this._focusPreviousStep();
-        }
-        break;
-      case SPACE:
-      case ENTER:
-        this.selectedIndex = this._focusIndex;
-        break;
-      default:
-        // Return to avoid calling preventDefault on keys that are not explicitly handled.
-        return;
+    const keyCode = event.keyCode;
+
+    // Note that the left/right arrows work both in vertical and horizontal mode.
+    if (keyCode === RIGHT_ARROW) {
+      this._layoutDirection() === 'rtl' ? this._focusPreviousStep() : this._focusNextStep();
+      event.preventDefault();
     }
-    event.preventDefault();
+
+    if (keyCode === LEFT_ARROW) {
+      this._layoutDirection() === 'rtl' ? this._focusNextStep() : this._focusPreviousStep();
+      event.preventDefault();
+    }
+
+    // Note that the up/down arrows only work in vertical mode.
+    // See: https://www.w3.org/TR/wai-aria-practices-1.1/#tabpanel
+    if (this._orientation === 'vertical' && (keyCode === UP_ARROW || keyCode === DOWN_ARROW)) {
+      keyCode === UP_ARROW ? this._focusPreviousStep() : this._focusNextStep();
+      event.preventDefault();
+    }
+
+    if (keyCode === SPACE || keyCode === ENTER) {
+      this.selectedIndex = this._focusIndex;
+      event.preventDefault();
+    }
+
+    if (keyCode === HOME) {
+      this._focusStep(0);
+      event.preventDefault();
+    }
+
+    if (keyCode === END) {
+      this._focusStep(this._steps.length - 1);
+      event.preventDefault();
+    }
   }
 
   private _focusNextStep() {
@@ -297,10 +347,15 @@ export class CdkStepper implements OnDestroy {
     steps[this._selectedIndex].interacted = true;
 
     if (this._linear && index >= 0) {
-      return steps.slice(0, index).some(step =>
-        step.stepControl && (step.stepControl.invalid || step.stepControl.pending)
-      );
+      return steps.slice(0, index).some(step => {
+        const control = step.stepControl;
+        const isIncomplete = control ?
+            (control.invalid || control.pending || !step.interacted) :
+            !step.completed;
+        return isIncomplete && !step.optional;
+      });
     }
+
     return false;
   }
 

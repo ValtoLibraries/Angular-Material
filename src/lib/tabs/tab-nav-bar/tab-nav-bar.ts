@@ -8,7 +8,6 @@
 import {Directionality} from '@angular/cdk/bidi';
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {Platform} from '@angular/cdk/platform';
-import {takeUntil} from 'rxjs/operators/takeUntil';
 import {ViewportRuler} from '@angular/cdk/scrolling';
 import {
   AfterContentInit,
@@ -35,16 +34,18 @@ import {
   CanDisableRipple,
   HasTabIndex,
   MAT_RIPPLE_GLOBAL_OPTIONS,
-  MatRipple,
   mixinColor,
   mixinDisabled,
   mixinDisableRipple,
-  mixinTabIndex,
+  mixinTabIndex, RippleConfig,
   RippleGlobalOptions,
+  RippleRenderer,
+  RippleTarget,
   ThemePalette,
 } from '@angular/material/core';
 import {merge} from 'rxjs/observable/merge';
 import {of as observableOf} from 'rxjs/observable/of';
+import {takeUntil} from 'rxjs/operators/takeUntil';
 import {Subject} from 'rxjs/Subject';
 import {MatInkBar} from '../ink-bar';
 
@@ -54,7 +55,7 @@ import {MatInkBar} from '../ink-bar';
 export class MatTabNavBase {
   constructor(public _elementRef: ElementRef) {}
 }
-export const _MatTabNavMixinBase = mixinDisableRipple(mixinColor(MatTabNavBase, 'primary'));
+export const _MatTabNavMixinBase = mixinColor(MatTabNavBase, 'primary');
 
 /**
  * Navigation component matching the styles of the tab group header.
@@ -64,7 +65,7 @@ export const _MatTabNavMixinBase = mixinDisableRipple(mixinColor(MatTabNavBase, 
   moduleId: module.id,
   selector: '[mat-tab-nav-bar]',
   exportAs: 'matTabNavBar, matTabNav',
-  inputs: ['color', 'disableRipple'],
+  inputs: ['color'],
   templateUrl: 'tab-nav-bar.html',
   styleUrls: ['tab-nav-bar.css'],
   host: {'class': 'mat-tab-nav-bar'},
@@ -73,10 +74,10 @@ export const _MatTabNavMixinBase = mixinDisableRipple(mixinColor(MatTabNavBase, 
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MatTabNav extends _MatTabNavMixinBase implements AfterContentInit, CanColor,
-    CanDisableRipple, OnDestroy {
+    OnDestroy {
 
   /** Subject that emits when the component has been destroyed. */
-  private _onDestroy = new Subject<void>();
+  private readonly _onDestroy = new Subject<void>();
 
   _activeLinkChanged: boolean;
   _activeLinkElement: ElementRef;
@@ -104,6 +105,7 @@ export class MatTabNav extends _MatTabNavMixinBase implements AfterContentInit, 
   private _backgroundColor: ThemePalette;
 
   /** Whether ripples should be disabled for all links or not. */
+  @Input()
   get disableRipple() { return this._disableRipple; }
   set disableRipple(value: boolean) {
     this._disableRipple = coerceBooleanProperty(value);
@@ -171,7 +173,8 @@ export class MatTabNav extends _MatTabNavMixinBase implements AfterContentInit, 
 
 // Boilerplate for applying mixins to MatTabLink.
 export class MatTabLinkBase {}
-export const _MatTabLinkMixinBase = mixinTabIndex(mixinDisabled(MatTabLinkBase));
+export const _MatTabLinkMixinBase =
+  mixinTabIndex(mixinDisableRipple(mixinDisabled(MatTabLinkBase)));
 
 /**
  * Link inside of a `mat-tab-nav-bar`.
@@ -179,26 +182,24 @@ export const _MatTabLinkMixinBase = mixinTabIndex(mixinDisabled(MatTabLinkBase))
 @Directive({
   selector: '[mat-tab-link], [matTabLink]',
   exportAs: 'matTabLink',
-  inputs: ['disabled', 'tabIndex'],
+  inputs: ['disabled', 'disableRipple', 'tabIndex'],
   host: {
     'class': 'mat-tab-link',
     '[attr.aria-disabled]': 'disabled.toString()',
     '[attr.tabIndex]': 'tabIndex',
     '[class.mat-tab-disabled]': 'disabled',
     '[class.mat-tab-label-active]': 'active',
+    '(click)': '_handleClick($event)'
   }
 })
 export class MatTabLink extends _MatTabLinkMixinBase
-    implements OnDestroy, CanDisable, HasTabIndex {
+    implements OnDestroy, CanDisable, CanDisableRipple, HasTabIndex, RippleTarget {
 
   /** Whether the tab link is active or not. */
   private _isActive: boolean = false;
 
-  /** Whether the ripples for this tab should be disabled or not. */
-  private _disableRipple: boolean = false;
-
-  /** Reference to the instance of the ripple for the tab link. */
-  private _tabLinkRipple: MatRipple;
+  /** Reference to the RippleRenderer for the tab-link. */
+  private _tabLinkRipple: RippleRenderer;
 
   /** Whether the link is active. */
   @Input()
@@ -210,12 +211,18 @@ export class MatTabLink extends _MatTabLinkMixinBase
     }
   }
 
-  /** Whether ripples should be disabled or not. */
-  get disableRipple(): boolean { return this.disabled || this._disableRipple; }
-  set disableRipple(value: boolean) {
-    this._disableRipple = value;
-    this._tabLinkRipple.disabled = this.disableRipple;
-    this._tabLinkRipple._updateRippleRenderer();
+  /**
+   * Ripple configuration for ripples that are launched on pointer down.
+   * @docs-private
+   */
+  rippleConfig: RippleConfig = {};
+
+  /**
+   * Whether ripples are disabled on interaction
+   * @docs-private
+   */
+  get rippleDisabled(): boolean {
+    return this.disabled || this.disableRipple;
   }
 
   constructor(private _tabNavBar: MatTabNav,
@@ -226,16 +233,30 @@ export class MatTabLink extends _MatTabLinkMixinBase
               @Attribute('tabindex') tabIndex: string) {
     super();
 
-    // Manually create a ripple instance that uses the tab link element as trigger element.
-    // Notice that the lifecycle hooks for the ripple config won't be called anymore.
-    this._tabLinkRipple = new MatRipple(_elementRef, ngZone, platform, globalOptions);
+    this._tabLinkRipple = new RippleRenderer(this, ngZone, _elementRef, platform);
+    this._tabLinkRipple.setupTriggerEvents(_elementRef.nativeElement);
 
     this.tabIndex = parseInt(tabIndex) || 0;
+
+    if (globalOptions) {
+      this.rippleConfig = {
+        terminateOnPointerUp: globalOptions.terminateOnPointerUp,
+        speedFactor: globalOptions.baseSpeedFactor,
+        animation: globalOptions.animation,
+      };
+    }
   }
 
   ngOnDestroy() {
-    // Manually call the ngOnDestroy lifecycle hook of the ripple instance because it won't be
-    // called automatically since its instance is not created by Angular.
-    this._tabLinkRipple.ngOnDestroy();
+    this._tabLinkRipple._removeTriggerEvents();
+  }
+
+  /**
+   * Handles the click event, preventing default navigation if the tab link is disabled.
+   */
+  _handleClick(event: MouseEvent) {
+    if (this.disabled) {
+      event.preventDefault();
+    }
   }
 }

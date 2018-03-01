@@ -38,7 +38,7 @@ present in the form field control. It can also be set to `auto` to restore the d
 
 <!-- example(form-field-label) -->
 
-Global default label options can be specified by setting providing a value for
+Global default label options can be specified by providing a value for
 `MAT_LABEL_GLOBAL_OPTIONS` in your application's root module. Like the property, the global
 setting can be either `always`, `never`, or `auto`.
 
@@ -140,5 +140,6 @@ This error occurs if you have added multiple hints for the same side. Keep in mi
 
 This error occurs when you have not added a form field control to your form field. If your form
 field contains a native `<input>` or `<textarea>` element, make sure you've added the `matInput`
-directive to it. Other components that can act as a form field control include `<mat-select>`,
-`<mat-chip-list>`, and any custom form field controls you've created.
+directive to it and have imported `MatInputModule`. Other components that can act as a form field
+control include `<mat-select>`, `<mat-chip-list>`, and any custom form field controls you've
+created.
