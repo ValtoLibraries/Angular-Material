@@ -6,9 +6,16 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Injectable, Inject, InjectionToken, Optional, SkipSelf} from '@angular/core';
 import {DOCUMENT} from '@angular/common';
+import {
+  Inject,
+  Injectable,
+  InjectionToken,
+  Optional,
+  SkipSelf,
+} from '@angular/core';
 import {addAriaReferencedId, getAriaReferenceIds, removeAriaReferencedId} from './aria-reference';
+
 
 /**
  * Interface used to register message elements and keep a count of how many registrations have
@@ -46,13 +53,9 @@ let messagesContainer: HTMLElement | null = null;
  * content.
  * @docs-private
  */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class AriaDescriber {
-  private _document: Document;
-
-  constructor(@Inject(DOCUMENT) _document: any) {
-    this._document = _document;
-  }
+  constructor(@Inject(DOCUMENT) private _document: Document) {}
 
   /**
    * Adds to the host element an aria-describedby reference to a hidden element that contains
@@ -204,18 +207,20 @@ export class AriaDescriber {
 
 }
 
-/** @docs-private */
-export function ARIA_DESCRIBER_PROVIDER_FACTORY(parentDispatcher: AriaDescriber, _document: any) {
+
+/** @docs-private @deprecated @deletion-target 7.0.0 */
+export function ARIA_DESCRIBER_PROVIDER_FACTORY(parentDispatcher: AriaDescriber,
+  _document: Document) {
   return parentDispatcher || new AriaDescriber(_document);
 }
 
-/** @docs-private */
+/** @docs-private @deprecated @deletion-target 7.0.0 */
 export const ARIA_DESCRIBER_PROVIDER = {
   // If there is already an AriaDescriber available, use that. Otherwise, provide a new one.
   provide: AriaDescriber,
   deps: [
     [new Optional(), new SkipSelf(), AriaDescriber],
-    DOCUMENT as InjectionToken<any>
+    DOCUMENT as InjectionToken<Document>
   ],
   useFactory: ARIA_DESCRIBER_PROVIDER_FACTORY
 };

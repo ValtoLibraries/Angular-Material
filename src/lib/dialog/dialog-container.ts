@@ -52,7 +52,6 @@ export function throwMatDialogContentAlreadyAttachedError() {
   templateUrl: 'dialog-container.html',
   styleUrls: ['dialog.css'],
   encapsulation: ViewEncapsulation.None,
-  preserveWhitespaces: false,
   // Using OnPush for dialogs caused some G3 sync issues. Disabled until we can track them down.
   // tslint:disable-next-line:validate-decorators
   changeDetection: ChangeDetectionStrategy.Default,
@@ -99,7 +98,7 @@ export class MatDialogContainer extends BasePortalOutlet {
     private _elementRef: ElementRef,
     private _focusTrapFactory: FocusTrapFactory,
     private _changeDetectorRef: ChangeDetectorRef,
-    @Optional() @Inject(DOCUMENT) private _document: any) {
+    @Optional() @Inject(DOCUMENT) private _document: Document) {
 
     super();
   }

@@ -7,14 +7,10 @@
  */
 import {Injectable, NgZone, OnDestroy} from '@angular/core';
 import {MediaMatcher} from './media-matcher';
-import {Observable} from 'rxjs/Observable';
-import {Subject} from 'rxjs/Subject';
-import {map} from 'rxjs/operators/map';
-import {startWith} from 'rxjs/operators/startWith';
-import {takeUntil} from 'rxjs/operators/takeUntil';
+import {combineLatest, fromEventPattern, Observable, Subject} from 'rxjs';
+import {map, startWith, takeUntil} from 'rxjs/operators';
 import {coerceArray} from '@angular/cdk/coercion';
-import {combineLatest} from 'rxjs/observable/combineLatest';
-import {fromEventPattern} from 'rxjs/observable/fromEventPattern';
+
 
 /** The current state of a layout breakpoint. */
 export interface BreakpointState {
@@ -28,7 +24,7 @@ interface Query {
 }
 
 /** Utility for checking the matching state of @media queries. */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class BreakpointObserver implements OnDestroy {
   /**  A map of all media queries currently being listened for. */
   private _queries: Map<string, Query> = new Map();

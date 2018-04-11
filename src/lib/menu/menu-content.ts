@@ -35,7 +35,7 @@ export class MatMenuContent implements OnDestroy {
     private _appRef: ApplicationRef,
     private _injector: Injector,
     private _viewContainerRef: ViewContainerRef,
-    @Inject(DOCUMENT) private _document: any) {}
+    @Inject(DOCUMENT) private _document: Document) {}
 
   /**
    * Attaches the content with a particular context.
@@ -44,9 +44,9 @@ export class MatMenuContent implements OnDestroy {
   attach(context: any = {}) {
     if (!this._portal) {
       this._portal = new TemplatePortal(this._template, this._viewContainerRef);
-    } else if (this._portal.isAttached) {
-      this._portal.detach();
     }
+
+    this.detach();
 
     if (!this._outlet) {
       this._outlet = new DomPortalOutlet(this._document.createElement('div'),
@@ -60,6 +60,16 @@ export class MatMenuContent implements OnDestroy {
     // risk it staying attached to a pane that's no longer in the DOM.
     element.parentNode!.insertBefore(this._outlet.outletElement, element);
     this._portal.attach(this._outlet, context);
+  }
+
+  /**
+   * Detaches the content.
+   * @docs-private
+   */
+  detach() {
+    if (this._portal.isAttached) {
+      this._portal.detach();
+    }
   }
 
   ngOnDestroy() {

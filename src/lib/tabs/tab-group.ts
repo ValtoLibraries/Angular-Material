@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {coerceBooleanProperty, coerceNumberProperty} from '@angular/cdk/coercion';
 import {
   AfterContentChecked,
   AfterContentInit,
@@ -22,11 +23,6 @@ import {
   ViewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import {coerceBooleanProperty, coerceNumberProperty} from '@angular/cdk/coercion';
-import {Subscription} from 'rxjs/Subscription';
-import {MatTab} from './tab';
-import {MatTabHeader} from './tab-header';
-import {merge} from 'rxjs/observable/merge';
 import {
   CanColor,
   CanDisableRipple,
@@ -34,6 +30,9 @@ import {
   mixinDisableRipple,
   ThemePalette
 } from '@angular/material/core';
+import {merge, Subscription} from 'rxjs';
+import {MatTab} from './tab';
+import {MatTabHeader} from './tab-header';
 
 
 /** Used to generate unique ID's for each tab component */
@@ -69,7 +68,6 @@ export const _MatTabGroupMixinBase = mixinColor(mixinDisableRipple(MatTabGroupBa
   templateUrl: 'tab-group.html',
   styleUrls: ['tab-group.css'],
   encapsulation: ViewEncapsulation.None,
-  preserveWhitespaces: false,
   changeDetection: ChangeDetectionStrategy.OnPush,
   inputs: ['color', 'disableRipple'],
   host: {
@@ -102,14 +100,6 @@ export class MatTabGroup extends _MatTabGroupMixinBase implements AfterContentIn
   get dynamicHeight(): boolean { return this._dynamicHeight; }
   set dynamicHeight(value: boolean) { this._dynamicHeight = coerceBooleanProperty(value); }
   private _dynamicHeight: boolean = false;
-
-  /**
-   * @deprecated
-   * @deletion-target 6.0.0
-   */
-  @Input('mat-dynamic-height')
-  get _dynamicHeightDeprecated(): boolean { return this._dynamicHeight; }
-  set _dynamicHeightDeprecated(value: boolean) { this._dynamicHeight = value; }
 
   /** The index of the active tab. */
   @Input()
@@ -151,13 +141,6 @@ export class MatTabGroup extends _MatTabGroupMixinBase implements AfterContentIn
   /** Event emitted when the tab selection has changed. */
   @Output() readonly selectedTabChange: EventEmitter<MatTabChangeEvent> =
       new EventEmitter<MatTabChangeEvent>(true);
-
-  /**
-   * Event emitted when the tab selection has changed.
-   * @deprecated Use `selectedTabChange` instead.
-   * @deletion-target 6.0.0
-   */
-  @Output() readonly selectChange: EventEmitter<MatTabChangeEvent> = this.selectedTabChange;
 
   private _groupId: number;
 

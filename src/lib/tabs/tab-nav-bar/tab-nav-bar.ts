@@ -43,10 +43,8 @@ import {
   RippleTarget,
   ThemePalette,
 } from '@angular/material/core';
-import {merge} from 'rxjs/observable/merge';
-import {of as observableOf} from 'rxjs/observable/of';
-import {takeUntil} from 'rxjs/operators/takeUntil';
-import {Subject} from 'rxjs/Subject';
+import {merge, of as observableOf, Subject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 import {MatInkBar} from '../ink-bar';
 
 
@@ -70,7 +68,6 @@ export const _MatTabNavMixinBase = mixinColor(MatTabNavBase, 'primary');
   styleUrls: ['tab-nav-bar.css'],
   host: {'class': 'mat-tab-nav-bar'},
   encapsulation: ViewEncapsulation.None,
-  preserveWhitespaces: false,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MatTabNav extends _MatTabNavMixinBase implements AfterContentInit, CanColor,

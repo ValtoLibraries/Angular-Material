@@ -6,20 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {coerceBooleanProperty} from '@angular/cdk/coercion';
+import {DOCUMENT} from '@angular/common';
 import {
+  AfterContentInit,
   Directive,
   ElementRef,
+  Inject,
+  Injectable,
   Input,
   NgZone,
   OnDestroy,
-  AfterContentInit,
-  Injectable,
-  Inject,
 } from '@angular/core';
-import {coerceBooleanProperty} from '@angular/cdk/coercion';
-import {take} from 'rxjs/operators/take';
+import {take} from 'rxjs/operators';
 import {InteractivityChecker} from '../interactivity-checker/interactivity-checker';
-import {DOCUMENT} from '@angular/common';
 
 
 /**
@@ -146,12 +146,15 @@ export class FocusTrap {
                                                  `[cdk-focus-${bound}]`) as NodeListOf<HTMLElement>;
 
     for (let i = 0; i < markers.length; i++) {
+      // @deletion-target 7.0.0
       if (markers[i].hasAttribute(`cdk-focus-${bound}`)) {
-        console.warn(`Found use of deprecated attribute 'cdk-focus-${bound}',` +
-                     ` use 'cdkFocusRegion${bound}' instead.`, markers[i]);
+        console.warn(`Found use of deprecated attribute 'cdk-focus-${bound}', ` +
+                     `use 'cdkFocusRegion${bound}' instead. The deprecated ` +
+                     `attribute will be removed in 7.0.0.`, markers[i]);
       } else if (markers[i].hasAttribute(`cdk-focus-region-${bound}`)) {
-        console.warn(`Found use of deprecated attribute 'cdk-focus-region-${bound}',` +
-                     ` use 'cdkFocusRegion${bound}' instead.`, markers[i]);
+        console.warn(`Found use of deprecated attribute 'cdk-focus-region-${bound}', ` +
+                     `use 'cdkFocusRegion${bound}' instead. The deprecated attribute ` +
+                     `will be removed in 7.0.0.`, markers[i]);
       }
     }
 
@@ -171,12 +174,14 @@ export class FocusTrap {
     const redirectToElement = this._element.querySelector(`[cdk-focus-initial], ` +
                                                           `[cdkFocusInitial]`) as HTMLElement;
 
-    if (this._element.hasAttribute(`cdk-focus-initial`)) {
-      console.warn(`Found use of deprecated attribute 'cdk-focus-initial',` +
-                    ` use 'cdkFocusInitial' instead.`, this._element);
-    }
-
     if (redirectToElement) {
+      // @deletion-target 7.0.0
+      if (redirectToElement.hasAttribute(`cdk-focus-initial`)) {
+        console.warn(`Found use of deprecated attribute 'cdk-focus-initial', ` +
+                    `use 'cdkFocusInitial' instead. The deprecated attribute ` +
+                    `will be removed in 7.0.0`, redirectToElement);
+      }
+
       redirectToElement.focus();
       return true;
     }
@@ -278,17 +283,12 @@ export class FocusTrap {
 
 
 /** Factory that allows easy instantiation of focus traps. */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class FocusTrapFactory {
-  private _document: Document;
-
   constructor(
       private _checker: InteractivityChecker,
       private _ngZone: NgZone,
-      @Inject(DOCUMENT) _document: any) {
-
-    this._document = _document;
-  }
+      @Inject(DOCUMENT) private _document: Document) {}
 
   /**
    * Creates a focus-trapped region around the given element.
@@ -303,48 +303,12 @@ export class FocusTrapFactory {
   }
 }
 
-
-/**
- * Directive for trapping focus within a region.
- * @docs-private
- * @deprecated
- * @deletion-target 6.0.0
- */
-@Directive({
-  selector: 'cdk-focus-trap',
-})
-export class FocusTrapDeprecatedDirective implements OnDestroy, AfterContentInit {
-  focusTrap: FocusTrap;
-
-  /** Whether the focus trap is active. */
-  @Input()
-  get disabled(): boolean { return !this.focusTrap.enabled; }
-  set disabled(val: boolean) {
-    this.focusTrap.enabled = !coerceBooleanProperty(val);
-  }
-
-  constructor(private _elementRef: ElementRef, private _focusTrapFactory: FocusTrapFactory) {
-    this.focusTrap = this._focusTrapFactory.create(this._elementRef.nativeElement, true);
-  }
-
-  ngOnDestroy() {
-    this.focusTrap.destroy();
-  }
-
-  ngAfterContentInit() {
-    this.focusTrap.attachAnchors();
-  }
-}
-
-
 /** Directive for trapping focus within a region. */
 @Directive({
   selector: '[cdkTrapFocus]',
   exportAs: 'cdkTrapFocus',
 })
 export class CdkTrapFocus implements OnDestroy, AfterContentInit {
-  private _document: Document;
-
   /** Underlying FocusTrap instance. */
   focusTrap: FocusTrap;
 
@@ -368,7 +332,7 @@ export class CdkTrapFocus implements OnDestroy, AfterContentInit {
   constructor(
       private _elementRef: ElementRef,
       private _focusTrapFactory: FocusTrapFactory,
-      @Inject(DOCUMENT) _document: any) {
+      @Inject(DOCUMENT) private _document: Document) {
 
     this._document = _document;
     this.focusTrap = this._focusTrapFactory.create(this._elementRef.nativeElement, true);

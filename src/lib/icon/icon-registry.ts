@@ -6,26 +6,19 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {catchError} from 'rxjs/operators/catchError';
-import {tap} from 'rxjs/operators/tap';
-import {finalize} from 'rxjs/operators/finalize';
-import {map} from 'rxjs/operators/map';
-import {share} from 'rxjs/operators/share';
+import {DOCUMENT} from '@angular/common';
+import {HttpClient} from '@angular/common/http';
 import {
-  Injectable,
   Inject,
+  Injectable,
   InjectionToken,
   Optional,
   SecurityContext,
   SkipSelf,
 } from '@angular/core';
-import {HttpClient} from '@angular/common/http';
 import {DomSanitizer, SafeResourceUrl} from '@angular/platform-browser';
-import {Observable} from 'rxjs/Observable';
-import {forkJoin} from 'rxjs/observable/forkJoin';
-import {of as observableOf} from 'rxjs/observable/of';
-import {_throw as observableThrow} from 'rxjs/observable/throw';
-import {DOCUMENT} from '@angular/common';
+import {forkJoin, Observable, of as observableOf, throwError as observableThrow} from 'rxjs';
+import {catchError, finalize, map, share, tap} from 'rxjs/operators';
 
 
 /**
@@ -76,10 +69,8 @@ class SvgIconConfig {
  * - Registers aliases for CSS classes, for use with icon fonts.
  * - Loads icons from URLs and extracts individual icons from icon sets.
  */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class MatIconRegistry {
-  private _document: Document;
-
   /**
    * URLs and cached SVG elements for individual icons. Keys are of the format "[namespace]:[icon]".
    */
@@ -110,10 +101,7 @@ export class MatIconRegistry {
   constructor(
     @Optional() private _httpClient: HttpClient,
     private _sanitizer: DomSanitizer,
-    @Optional() @Inject(DOCUMENT) document?: any) {
-      // TODO(crisbeto): make _document required next major release.
-      this._document = document;
-    }
+    @Optional() @Inject(DOCUMENT) private _document: Document) {}
 
   /**
    * Registers an icon by URL in the default namespace.
@@ -427,17 +415,15 @@ export class MatIconRegistry {
    * Creates a DOM element from the given SVG string.
    */
   private _svgElementFromString(str: string): SVGElement {
-    if (this._document || typeof document !== 'undefined') {
-      const div = (this._document || document).createElement('DIV');
-      div.innerHTML = str;
-      const svg = div.querySelector('svg') as SVGElement;
-      if (!svg) {
-        throw Error('<svg> tag not found');
-      }
-      return svg;
+    const div = this._document.createElement('DIV');
+    div.innerHTML = str;
+    const svg = div.querySelector('svg') as SVGElement;
+
+    if (!svg) {
+      throw Error('<svg> tag not found');
     }
 
-    throw new Error('MatIconRegistry could not resolve document.');
+    return svg;
   }
 
   /**
@@ -459,9 +445,6 @@ export class MatIconRegistry {
    * Sets the default attributes for an SVG element to be used as an icon.
    */
   private _setSvgAttributes(svg: SVGElement): SVGElement {
-    if (!svg.getAttribute('xmlns')) {
-      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    }
     svg.setAttribute('fit', '');
     svg.setAttribute('height', '100%');
     svg.setAttribute('width', '100%');

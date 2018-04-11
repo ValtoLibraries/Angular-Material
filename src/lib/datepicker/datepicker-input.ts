@@ -33,7 +33,7 @@ import {
 import {DateAdapter, MAT_DATE_FORMATS, MatDateFormats} from '@angular/material/core';
 import {MatFormField} from '@angular/material/form-field';
 import {MAT_INPUT_VALUE_ACCESSOR} from '@angular/material/input';
-import {Subscription} from 'rxjs/Subscription';
+import {Subscription} from 'rxjs';
 import {MatDatepicker} from './datepicker';
 import {createMissingDateImplError} from './datepicker-errors';
 
@@ -156,17 +156,19 @@ export class MatDatepickerInput<D> implements AfterContentInit, ControlValueAcce
   get disabled(): boolean { return !!this._disabled; }
   set disabled(value: boolean) {
     const newValue = coerceBooleanProperty(value);
+    const element = this._elementRef.nativeElement;
 
     if (this._disabled !== newValue) {
       this._disabled = newValue;
       this._disabledChange.emit(newValue);
     }
 
-    if (newValue) {
+    // We need to null check the `blur` method, because it's undefined during SSR.
+    if (newValue && element.blur) {
       // Normally, native input elements automatically blur if they turn disabled. This behavior
       // is problematic, because it would mean that it triggers another change detection cycle,
       // which then causes a changed after checked error if the input element was focused before.
-      this._elementRef.nativeElement.blur();
+      element.blur();
     }
   }
   private _disabled: boolean;
@@ -252,14 +254,13 @@ export class MatDatepickerInput<D> implements AfterContentInit, ControlValueAcce
 
   ngAfterContentInit() {
     if (this._datepicker) {
-      this._datepickerSubscription =
-          this._datepicker.selectedChanged.subscribe((selected: D) => {
-            this.value = selected;
-            this._cvaOnChange(selected);
-            this._onTouched();
-            this.dateInput.emit(new MatDatepickerInputEvent(this, this._elementRef.nativeElement));
-            this.dateChange.emit(new MatDatepickerInputEvent(this, this._elementRef.nativeElement));
-          });
+      this._datepickerSubscription = this._datepicker._selectedChanged.subscribe((selected: D) => {
+        this.value = selected;
+        this._cvaOnChange(selected);
+        this._onTouched();
+        this.dateInput.emit(new MatDatepickerInputEvent(this, this._elementRef.nativeElement));
+        this.dateChange.emit(new MatDatepickerInputEvent(this, this._elementRef.nativeElement));
+      });
     }
   }
 

@@ -6,16 +6,23 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Injectable, InjectionToken, Inject, Optional, SkipSelf, OnDestroy} from '@angular/core';
 import {DOCUMENT} from '@angular/common';
+import {
+  Inject,
+  Injectable,
+  InjectionToken,
+  OnDestroy,
+  Optional,
+  SkipSelf,
+} from '@angular/core';
 
 
 /** Container inside which all overlays will render. */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class OverlayContainer implements OnDestroy {
   protected _containerElement: HTMLElement;
 
-  constructor(@Inject(DOCUMENT) private _document: any) {}
+  constructor(@Inject(DOCUMENT) private _document: Document) {}
 
   ngOnDestroy() {
     if (this._containerElement && this._containerElement.parentNode) {
@@ -47,19 +54,21 @@ export class OverlayContainer implements OnDestroy {
   }
 }
 
-/** @docs-private */
+
+/** @docs-private @deprecated @deletion-target 7.0.0 */
 export function OVERLAY_CONTAINER_PROVIDER_FACTORY(parentContainer: OverlayContainer,
-  _document: any) {
+  _document: Document) {
   return parentContainer || new OverlayContainer(_document);
 }
 
-/** @docs-private */
+/** @docs-private @deprecated @deletion-target 7.0.0 */
 export const OVERLAY_CONTAINER_PROVIDER = {
   // If there is already an OverlayContainer available, use that. Otherwise, provide a new one.
   provide: OverlayContainer,
   deps: [
     [new Optional(), new SkipSelf(), OverlayContainer],
-    DOCUMENT as InjectionToken<any> // We need to use the InjectionToken somewhere to keep TS happy
+    // We need to use the InjectionToken somewhere to keep TS happy
+    DOCUMENT as InjectionToken<Document>
   ],
   useFactory: OVERLAY_CONTAINER_PROVIDER_FACTORY
 };
