@@ -11,8 +11,8 @@ import {
 } from '@angular/cdk/keycodes';
 import {StepperOrientation} from '@angular/cdk/stepper';
 import {dispatchKeyboardEvent} from '@angular/cdk/testing';
-import {Component, DebugElement} from '@angular/core';
-import {async, ComponentFixture, inject, TestBed} from '@angular/core/testing';
+import {Component, DebugElement, EventEmitter, OnInit} from '@angular/core';
+import {async, ComponentFixture, fakeAsync, flush, inject, TestBed} from '@angular/core/testing';
 import {
   AbstractControl,
   AsyncValidatorFn,
@@ -35,10 +35,13 @@ import {MatStepperIntl} from './stepper-intl';
 const VALID_REGEX = /valid/;
 
 describe('MatStepper', () => {
-  let dir: Direction;
+  let dir: {value: Direction, change: EventEmitter<Direction>};
 
   beforeEach(async(() => {
-    dir = 'ltr';
+    dir = {
+      value: 'ltr',
+      change: new EventEmitter()
+    };
 
     TestBed.configureTestingModule({
       imports: [MatStepperModule, NoopAnimationsModule, ReactiveFormsModule],
@@ -53,7 +56,7 @@ describe('MatStepper', () => {
         LinearStepperWithValidOptionalStep,
       ],
       providers: [
-        {provide: Directionality, useFactory: () => ({value: dir})}
+        {provide: Directionality, useFactory: () => dir}
       ]
     });
 
@@ -318,6 +321,50 @@ describe('MatStepper', () => {
 
         expect(optionalLabel.textContent).toBe('Valgfri');
       }));
+
+      it('should emit an event when the enter animation is done', fakeAsync(() => {
+        let stepper = fixture.debugElement.query(By.directive(MatStepper)).componentInstance;
+        let selectionChangeSpy = jasmine.createSpy('selectionChange spy');
+        let animationDoneSpy = jasmine.createSpy('animationDone spy');
+        let selectionChangeSubscription = stepper.selectionChange.subscribe(selectionChangeSpy);
+        let animationDoneSubscription = stepper.animationDone.subscribe(animationDoneSpy);
+
+        stepper.selectedIndex = 1;
+        fixture.detectChanges();
+
+        expect(selectionChangeSpy).toHaveBeenCalledTimes(1);
+        expect(animationDoneSpy).not.toHaveBeenCalled();
+
+        flush();
+
+        expect(selectionChangeSpy).toHaveBeenCalledTimes(1);
+        expect(animationDoneSpy).toHaveBeenCalledTimes(1);
+
+        selectionChangeSubscription.unsubscribe();
+        animationDoneSubscription.unsubscribe();
+      }));
+
+    it('should not throw when attempting to get the selected step too early', () => {
+      fixture.destroy();
+      fixture = TestBed.createComponent(SimpleMatVerticalStepperApp);
+
+      const stepperComponent: MatVerticalStepper = fixture.debugElement
+          .query(By.css('mat-vertical-stepper')).componentInstance;
+
+      expect(() => stepperComponent.selected).not.toThrow();
+    });
+
+    it('should not throw when attempting to set the selected step too early', () => {
+      fixture.destroy();
+      fixture = TestBed.createComponent(SimpleMatVerticalStepperApp);
+
+      const stepperComponent: MatVerticalStepper = fixture.debugElement
+          .query(By.css('mat-vertical-stepper')).componentInstance;
+
+      expect(() => stepperComponent.selected = null!).not.toThrow();
+      expect(stepperComponent.selectedIndex).toBe(-1);
+    });
+
   });
 
   describe('icon overrides', () => {
@@ -366,7 +413,7 @@ describe('MatStepper', () => {
     let fixture: ComponentFixture<SimpleMatVerticalStepperApp>;
 
     beforeEach(() => {
-      dir = 'rtl';
+      dir.value = 'rtl';
       fixture = TestBed.createComponent(SimpleMatVerticalStepperApp);
       fixture.detectChanges();
     });
@@ -566,6 +613,25 @@ describe('MatStepper', () => {
       expect(testComponent.twoGroup.get('twoCtrl')!.valid).toBe(false);
     });
 
+    it('should reset back to the first step when some of the steps are not editable', () => {
+      const steps = stepperComponent._steps.toArray();
+
+      steps[0].editable = false;
+
+      testComponent.oneGroup.get('oneCtrl')!.setValue('value');
+      fixture.detectChanges();
+
+      stepperComponent.next();
+      fixture.detectChanges();
+
+      expect(stepperComponent.selectedIndex).toBe(1);
+
+      stepperComponent.reset();
+      fixture.detectChanges();
+
+      expect(stepperComponent.selectedIndex).toBe(0);
+    });
+
     it('should not clobber the `complete` binding when resetting', () => {
       const steps: MatStep[] = stepperComponent._steps.toArray();
       const fillOutStepper = () => {
@@ -676,7 +742,7 @@ describe('MatStepper', () => {
     });
 
     it('should reverse arrow key focus in RTL mode', () => {
-      dir = 'rtl';
+      dir.value = 'rtl';
       let fixture = TestBed.createComponent(SimpleMatVerticalStepperApp);
       fixture.detectChanges();
 
@@ -703,11 +769,25 @@ describe('MatStepper', () => {
     });
 
     it('should reverse arrow key focus in RTL mode', () => {
-      dir = 'rtl';
+      dir.value = 'rtl';
       let fixture = TestBed.createComponent(SimpleMatHorizontalStepperApp);
       fixture.detectChanges();
 
       let stepHeaders = fixture.debugElement.queryAll(By.css('.mat-horizontal-stepper-header'));
+      assertArrowKeyInteractionInRtl(fixture, stepHeaders);
+    });
+
+    it('should reverse arrow key focus when switching into RTL after init', () => {
+      let fixture = TestBed.createComponent(SimpleMatHorizontalStepperApp);
+      fixture.detectChanges();
+
+      let stepHeaders = fixture.debugElement.queryAll(By.css('.mat-horizontal-stepper-header'));
+      assertCorrectKeyboardInteraction(fixture, stepHeaders, 'horizontal');
+
+      dir.value = 'rtl';
+      dir.change.emit('rtl');
+      fixture.detectChanges();
+
       assertArrowKeyInteractionInRtl(fixture, stepHeaders);
     });
   });
@@ -842,7 +922,7 @@ function assertArrowKeyInteractionInRtl(fixture: ComponentFixture<any>,
   expect(stepperComponent._getFocusIndex()).toBe(0);
 }
 
-function asyncValidator(minLength: number, validationTrigger: Observable<any>): AsyncValidatorFn {
+function asyncValidator(minLength: number, validationTrigger: Subject<void>): AsyncValidatorFn {
   return (control: AbstractControl): Observable<ValidationErrors | null> => {
     return validationTrigger.pipe(
       map(() => control.value && control.value.length >= minLength ? null : {asyncValidation: {}}),
@@ -956,12 +1036,12 @@ class SimpleMatVerticalStepperApp {
     </mat-vertical-stepper>
   `
 })
-class LinearMatVerticalStepperApp {
+class LinearMatVerticalStepperApp implements OnInit {
   oneGroup: FormGroup;
   twoGroup: FormGroup;
   threeGroup: FormGroup;
 
-  validationTrigger: Subject<any> = new Subject();
+  validationTrigger = new Subject<void>();
 
   ngOnInit() {
     this.oneGroup = new FormGroup({

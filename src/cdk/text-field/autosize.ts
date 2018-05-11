@@ -187,14 +187,32 @@ export class CdkTextareaAutosize implements AfterViewInit, DoCheck, OnDestroy {
     // Long placeholders that are wider than the textarea width may lead to a bigger scrollHeight
     // value. To ensure that the scrollHeight is not bigger than the content, the placeholders
     // need to be removed temporarily.
-    textarea.style.height = 'auto';
-    textarea.style.overflow = 'hidden';
+    textarea.classList.add('cdk-textarea-autosize-measuring');
     textarea.placeholder = '';
 
+    // The cdk-textarea-autosize-measuring class includes a 2px padding to workaround an issue with
+    // Chrome, so we account for that extra space here by subtracting 4 (2px top + 2px bottom).
+    const height = textarea.scrollHeight - 4;
+
     // Use the scrollHeight to know how large the textarea *would* be if fit its entire value.
-    textarea.style.height = `${textarea.scrollHeight}px`;
-    textarea.style.overflow = '';
+    textarea.style.height = `${height}px`;
+    textarea.classList.remove('cdk-textarea-autosize-measuring');
     textarea.placeholder = placeholderText;
+
+    // On Firefox resizing the textarea will prevent it from scrolling to the caret position.
+    // We need to re-set the selection in order for it to scroll to the proper position.
+    if (typeof requestAnimationFrame !== 'undefined') {
+      this._ngZone.runOutsideAngular(() => requestAnimationFrame(() => {
+        const {selectionStart, selectionEnd} = textarea;
+
+        // IE will throw an "Unspecified error" if we try to set the selection range after the
+        // element has been removed from the DOM. Assert that the directive hasn't been destroyed
+        // between the time we requested the animation frame and when it was executed.
+        if (!this._destroyed.isStopped) {
+          textarea.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }));
+    }
 
     this._previousValue = value;
   }

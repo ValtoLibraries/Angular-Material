@@ -29,9 +29,12 @@ export class OverlayKeyboardDispatcher implements OnDestroy {
   /** Currently attached overlays in the order they were attached. */
   _attachedOverlays: OverlayRef[] = [];
 
+  private _document: Document;
   private _isAttached: boolean;
 
-  constructor(@Inject(DOCUMENT) private _document: Document) {}
+  constructor(@Inject(DOCUMENT) document: any) {
+    this._document = document;
+  }
 
   ngOnDestroy() {
     this._detach();
@@ -62,18 +65,6 @@ export class OverlayKeyboardDispatcher implements OnDestroy {
     }
   }
 
-  /** Select the appropriate overlay from a keydown event. */
-  private _selectOverlayFromEvent(event: KeyboardEvent): OverlayRef {
-    // Check if any overlays contain the event
-    const targetedOverlay = this._attachedOverlays.find(overlay => {
-      return overlay.overlayElement === event.target ||
-          overlay.overlayElement.contains(event.target as HTMLElement);
-    });
-
-    // Use the overlay if it exists, otherwise choose the most recently attached one
-    return targetedOverlay || this._attachedOverlays[this._attachedOverlays.length - 1];
-  }
-
   /** Detaches the global keyboard event listener. */
   private _detach() {
     if (this._isAttached) {
@@ -85,8 +76,10 @@ export class OverlayKeyboardDispatcher implements OnDestroy {
   /** Keyboard event listener that will be attached to the body. */
   private _keydownListener = (event: KeyboardEvent) => {
     if (this._attachedOverlays.length) {
-      // Dispatch keydown event to the correct overlay.
-      this._selectOverlayFromEvent(event)._keydownEvents.next(event);
+      // Dispatch the keydown event to the top overlay. We want to target the most recent overlay,
+      // rather than trying to match where the event came from, because some components might open
+      // an overlay, but keep focus on a trigger element (e.g. for select and autocomplete).
+      this._attachedOverlays[this._attachedOverlays.length - 1]._keydownEvents.next(event);
     }
   }
 }
@@ -94,7 +87,7 @@ export class OverlayKeyboardDispatcher implements OnDestroy {
 
 /** @docs-private @deprecated @deletion-target 7.0.0 */
 export function OVERLAY_KEYBOARD_DISPATCHER_PROVIDER_FACTORY(
-    dispatcher: OverlayKeyboardDispatcher, _document: Document) {
+    dispatcher: OverlayKeyboardDispatcher, _document: any) {
   return dispatcher || new OverlayKeyboardDispatcher(_document);
 }
 
@@ -108,7 +101,7 @@ export const OVERLAY_KEYBOARD_DISPATCHER_PROVIDER = {
 
     // Coerce to `InjectionToken` so that the `deps` match the "shape"
     // of the type expected by Angular
-    DOCUMENT as InjectionToken<Document>
+    DOCUMENT as InjectionToken<any>
   ],
   useFactory: OVERLAY_KEYBOARD_DISPATCHER_PROVIDER_FACTORY
 };

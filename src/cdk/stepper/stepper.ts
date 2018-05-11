@@ -33,7 +33,8 @@ import {
 } from '@angular/core';
 import {AbstractControl} from '@angular/forms';
 import {CdkStepLabel} from './step-label';
-import {Subject} from 'rxjs';
+import {Observable, Subject, of as obaservableOf} from 'rxjs';
+import {startWith, takeUntil} from 'rxjs/operators';
 
 /** Used to generate unique ID for each stepper component. */
 let nextId = 0;
@@ -179,9 +180,7 @@ export class CdkStepper implements AfterViewInit, OnDestroy {
       if (this._selectedIndex != index &&
           !this._anyControlsInvalidOrPending(index) &&
           (index >= this._selectedIndex || this._steps.toArray()[index].editable)) {
-
-        this._emitStepperSelectionEvent(index);
-        this._keyManager.updateActiveItemIndex(this._selectedIndex);
+        this._updateSelectedItemIndex(index);
       }
     } else {
       this._selectedIndex = index;
@@ -191,9 +190,12 @@ export class CdkStepper implements AfterViewInit, OnDestroy {
 
   /** The step that is selected. */
   @Input()
-  get selected(): CdkStep { return this._steps.toArray()[this.selectedIndex]; }
+  get selected(): CdkStep {
+    // @deletion-target 7.0.0 Change return type to `CdkStep | undefined`.
+    return this._steps ? this._steps.toArray()[this.selectedIndex] : undefined!;
+  }
   set selected(step: CdkStep) {
-    this.selectedIndex = this._steps.toArray().indexOf(step);
+    this.selectedIndex = this._steps ? this._steps.toArray().indexOf(step) : -1;
   }
 
   /** Event emitted when the selected step has changed. */
@@ -214,8 +216,11 @@ export class CdkStepper implements AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     this._keyManager = new FocusKeyManager(this._stepHeader)
       .withWrap()
-      .withHorizontalOrientation(this._layoutDirection())
       .withVerticalOrientation(this._orientation === 'vertical');
+
+    (this._dir ? this._dir.change as Observable<Direction> : obaservableOf())
+      .pipe(startWith(this._layoutDirection()), takeUntil(this._destroyed))
+      .subscribe(direction => this._keyManager.withHorizontalOrientation(direction));
 
     this._keyManager.updateActiveItemIndex(this._selectedIndex);
   }
@@ -237,7 +242,7 @@ export class CdkStepper implements AfterViewInit, OnDestroy {
 
   /** Resets the stepper to its initial state. Note that this includes clearing form data. */
   reset(): void {
-    this.selectedIndex = 0;
+    this._updateSelectedItemIndex(0);
     this._steps.forEach(step => step.reset());
     this._stateChanged();
   }
@@ -283,7 +288,7 @@ export class CdkStepper implements AfterViewInit, OnDestroy {
     return this._keyManager ? this._keyManager.activeItemIndex : this._selectedIndex;
   }
 
-  private _emitStepperSelectionEvent(newIndex: number): void {
+  private _updateSelectedItemIndex(newIndex: number): void {
     const stepsArray = this._steps.toArray();
     this.selectionChange.emit({
       selectedIndex: newIndex,
@@ -291,6 +296,7 @@ export class CdkStepper implements AfterViewInit, OnDestroy {
       selectedStep: stepsArray[newIndex],
       previouslySelectedStep: stepsArray[this._selectedIndex],
     });
+    this._keyManager.updateActiveItemIndex(newIndex);
     this._selectedIndex = newIndex;
     this._stateChanged();
   }

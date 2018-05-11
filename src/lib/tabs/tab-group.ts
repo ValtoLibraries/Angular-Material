@@ -59,7 +59,7 @@ export const _MatTabGroupMixinBase = mixinColor(mixinDisableRipple(MatTabGroupBa
 /**
  * Material design tab-group component.  Supports basic tab pairs (label + content) and includes
  * animated ink-bar, keyboard navigation, and screen reader.
- * See: https://www.google.com/design/spec/components/tabs.html
+ * See: https://material.io/design/components/tabs.html
  */
 @Component({
   moduleId: module.id,
@@ -82,6 +82,8 @@ export class MatTabGroup extends _MatTabGroupMixinBase implements AfterContentIn
   @ContentChildren(MatTab) _tabs: QueryList<MatTab>;
 
   @ViewChild('tabBodyWrapper') _tabBodyWrapper: ElementRef;
+
+  @ViewChild('tabHeader') _tabHeader: MatTabHeader;
 
   /** The tab index that should be selected after the content has been checked. */
   private _indexToSelect: number | null = 0;
@@ -206,6 +208,13 @@ export class MatTabGroup extends _MatTabGroupMixinBase implements AfterContentIn
   ngOnDestroy() {
     this._tabsSubscription.unsubscribe();
     this._tabLabelSubscription.unsubscribe();
+  }
+
+  /** Re-aligns the ink bar to the selected tab element. */
+  realignInkBar() {
+    if (this._tabHeader) {
+      this._tabHeader._alignInkBarToSelectedTab();
+    }
   }
 
   _focusChanged(index: number) {

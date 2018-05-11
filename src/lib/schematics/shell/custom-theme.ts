@@ -1,10 +1,8 @@
-import {AppConfig} from '../utils/devkit-utils/config';
+import {Project} from '../utils/devkit-utils/config';
 
-/**
- * Create custom theme for the given application configuration.
- */
-export function createCustomTheme(app: AppConfig) {
-  const name = app.name || 'app';
+/** Create custom theme for the given application configuration. */
+export function createCustomTheme(project: Project) {
+  const name = project.name || 'app';
 return `
 // Custom Theming for Angular Material
 // For more information: https://material.angular.io/guide/theming
@@ -18,7 +16,7 @@ return `
 
 // Define the palettes for your theme using the Material Design palettes available in palette.scss
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
-// hue. Available color palettes: https://www.google.com/design/spec/style/color.html
+// hue. Available color palettes: https://material.io/design/color/
 $${name}-primary: mat-palette($mat-indigo);
 $${name}-accent: mat-palette($mat-pink, A200, A100, A400);
 

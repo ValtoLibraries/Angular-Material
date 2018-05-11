@@ -469,6 +469,19 @@ describe('MatDrawer', () => {
       expect(document.activeElement).toBe(drawerEl.nativeElement);
     }));
 
+    it('should be able to disable auto focus', fakeAsync(() => {
+      testComponent.autoFocus = false;
+      testComponent.mode = 'push';
+      fixture.detectChanges();
+      lastFocusableElement.focus();
+
+      drawer.open();
+      fixture.detectChanges();
+      tick();
+
+      expect(document.activeElement).not.toBe(firstFocusableElement);
+    }));
+
   });
 });
 
@@ -596,6 +609,14 @@ describe('MatDrawerContainer', () => {
   }));
 
   it('should not animate when the sidenav is open on load ', fakeAsync(() => {
+    TestBed
+      .resetTestingModule()
+      .configureTestingModule({
+        imports: [MatSidenavModule, BrowserAnimationsModule],
+        declarations: [DrawerSetToOpenedTrue],
+      })
+      .compileComponents();
+
     const fixture = TestBed.createComponent(DrawerSetToOpenedTrue);
 
     fixture.detectChanges();
@@ -790,7 +811,7 @@ class DrawerDynamicPosition {
   // to be focusable across all platforms.
   template: `
     <mat-drawer-container>
-      <mat-drawer position="start" [mode]="mode">
+      <mat-drawer position="start" [mode]="mode" [autoFocus]="autoFocus">
         <input type="text" class="input1"/>
       </mat-drawer>
       <input type="text" class="input2"/>
@@ -798,6 +819,7 @@ class DrawerDynamicPosition {
 })
 class DrawerWithFocusableElements {
   mode: string = 'over';
+  autoFocus = true;
 }
 
 @Component({

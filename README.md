@@ -26,15 +26,13 @@ and which pieces are blocked) and make a comment.
 Also see our [`help wanted`](https://github.com/angular/material2/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 label.
 
-High level stuff planned for Q1 2018 (January - March):
-* Research and prototyping for virtual-scroll
-* Research and exploration for data visualization
-* cdkTree and matTree
-* cdk/dialog
-* Switch build to bazel
-* Overlay positioning improvements
-* Research and prototyping for future Material Design updates
-* Research and prototyping drag/drop features for the CDK
+High level stuff planned for Q2 2018 (April - June):
+* Implementing cdk virtual-scroll
+* Implementing cdk drag-and-drop
+* Ongoing migration to bazel
+* Table feature improvements
+* Improve docs for cdk
+* Accessibility improvements for select, autocomplete, button-toggle, and chips.
 
 
 #### Available features
@@ -42,6 +40,8 @@ High level stuff planned for Q1 2018 (January - March):
 | Feature          | Notes                                                  | Docs         |
 |------------------|--------------------------------------------------------|--------------|
 | autocomplete     |                                                        |   [Docs][24] |
+| badge            |                                                        |   [Docs][37] |
+| bottom-sheet     |                                                        |   [Docs][38] |
 | button           |                                                        |   [Docs][1]  |
 | button-toggle    |                                                        |   [Docs][15] |
 | cards            |                                                        |   [Docs][2]  |
@@ -73,6 +73,7 @@ High level stuff planned for Q1 2018 (January - March):
 | textarea         |                                                        |   [Docs][5]  |
 | toolbar          |                                                        |   [Docs][7]  |
 | tooltip          |                                                        |   [Docs][18] |
+| tree             |                                                        |   [Docs][36] |
 | ---------------- | ------------------------------------------------------ | ------------ |
 | theming          |                                                        |  [Guide][20] |
 | typography       |                                                        |  [Guide][27] |
@@ -84,13 +85,10 @@ High level stuff planned for Q1 2018 (January - March):
 
 | Feature          | Status                              | Docs         | Issue          |
 |------------------|-------------------------------------|--------------|----------------|
-| tree             |      In-progress ([sneak peek][31]) |           -  |  [#3175][3175] |
 | sticky-header    |        In-progress, planned Q2 2018 |           -  |   [#474][0474] |
-| virtual-repeat   |        Prototyping, planned Q1 2018 |           -  |   [#823][0823] |
-| badge            |        In-progress, planned Q1 2018 |           -  |  [#3085][3058] |
+| virtual-repeat   |        Prototyping, planned Q2 2018 |           -  |   [#823][0823] |
 | fab speed-dial   |            Not started, not planned |           -  |   [#860][0860] |
 | fab toolbar      |            Not started, not planned |           -  |              - |
-| bottom-sheet     |            Not started, not planned |           -  |  [#8113][8113] |
 | bottom-nav       |            Not started, not planned |           -  |   [#408][0408] |
 
  [0]: https://github.com/angular/flex-layout/wiki
@@ -129,6 +127,9 @@ High level stuff planned for Q1 2018 (January - March):
 [33]: https://material.angular.io/components/stepper/overview
 [34]: https://material.angular.io/cdk/categories
 [35]: https://material.angular.io/components/divider/overview
+[36]: https://material.angular.io/components/tree/overview
+[37]: https://material.angular.io/components/badge/overview
+[38]: https://material.angular.io/components/bottom-sheet/overview
 
 [0107]: https://github.com/angular/material2/issues/107
 [0119]: https://github.com/angular/material2/issues/119
@@ -146,12 +147,9 @@ High level stuff planned for Q1 2018 (January - March):
 [0508]: https://github.com/angular/material2/issues/508
 [0823]: https://github.com/angular/material2/issues/823
 [0581]: https://github.com/angular/material2/issues/581
-[3175]: https://github.com/angular/material2/issues/3175
 [4191]: https://github.com/angular/material2/pull/4191
 [0995]: https://github.com/angular/material2/pull/995
 [0474]: https://github.com/angular/material2/pull/474
-[8113]: https://github.com/angular/material2/issues/8113
-[3058]: https://github.com/angular/material2/issues/3058
 
 [aio]: https://material.angular.io
 [getting-started]: https://material.angular.io/guide/getting-started
