@@ -497,10 +497,35 @@ describe('MatTooltip', () => {
       tick(0);
       fixture.detectChanges();
 
-      const tooltipWrapper = overlayContainerElement.querySelector('.cdk-overlay-pane')!;
+      const tooltipWrapper =
+          overlayContainerElement.querySelector('.cdk-overlay-connected-position-bounding-box')!;
 
       expect(tooltipWrapper).toBeTruthy('Expected tooltip to be shown.');
       expect(tooltipWrapper.getAttribute('dir')).toBe('rtl', 'Expected tooltip to be in RTL mode.');
+    }));
+
+    it('should keep the overlay direction in sync with the trigger direction', fakeAsync(() => {
+      dir.value = 'rtl';
+      tooltipDirective.show();
+      tick();
+      fixture.detectChanges();
+
+      let tooltipWrapper =
+          overlayContainerElement.querySelector('.cdk-overlay-connected-position-bounding-box')!;
+      expect(tooltipWrapper.getAttribute('dir')).toBe('rtl', 'Expected tooltip to be in RTL.');
+
+      tooltipDirective.hide(0);
+      tick();
+      fixture.detectChanges();
+
+      dir.value = 'ltr';
+      tooltipDirective.show();
+      tick();
+      fixture.detectChanges();
+
+      tooltipWrapper =
+          overlayContainerElement.querySelector('.cdk-overlay-connected-position-bounding-box')!;
+      expect(tooltipWrapper.getAttribute('dir')).toBe('ltr', 'Expected tooltip to be in LTR.');
     }));
 
     it('should be able to set the tooltip message as a number', fakeAsync(() => {

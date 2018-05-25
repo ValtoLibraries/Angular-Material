@@ -211,7 +211,7 @@ describe('MatBottomSheet', () => {
 
     viewContainerFixture.detectChanges();
 
-    let overlayPane = overlayContainerElement.querySelector('.cdk-overlay-pane')!;
+    let overlayPane = overlayContainerElement.querySelector('.cdk-global-overlay-wrapper')!;
 
     expect(overlayPane.getAttribute('dir')).toBe('rtl');
   });
@@ -222,6 +222,14 @@ describe('MatBottomSheet', () => {
     viewContainerFixture.detectChanges();
 
     expect(bottomSheetRef.instance.directionality.value).toBe('rtl');
+  });
+
+  it('should fall back to injecting the global direction if none is passed by the config', () => {
+    const bottomSheetRef = bottomSheet.open(PizzaMsg, {});
+
+    viewContainerFixture.detectChanges();
+
+    expect(bottomSheetRef.instance.directionality.value).toBe('ltr');
   });
 
   it('should be able to set a custom panel class', () => {

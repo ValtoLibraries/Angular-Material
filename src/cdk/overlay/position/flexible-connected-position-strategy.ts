@@ -22,7 +22,6 @@ import {isElementScrolledOutsideView, isElementClippedByScrolling} from './scrol
 import {coerceCssPixelValue} from '@angular/cdk/coercion';
 import {Platform} from '@angular/cdk/platform';
 
-
 // TODO: refactor clipping detection into a separate thing (part of scrolling module)
 // TODO: doesn't handle both flexible width and height when it has to scroll along both axis.
 
@@ -109,9 +108,19 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   /** Selector to be used when finding the elements on which to set the transform origin. */
   private _transformOriginSelector: string;
 
+  /** Amount of subscribers to the `positionChanges` stream. */
+  private _positionChangeSubscriptions = 0;
+
   /** Observable sequence of position changes. */
-  positionChanges: Observable<ConnectedOverlayPositionChange> =
-      this._positionChanges.asObservable();
+  positionChanges: Observable<ConnectedOverlayPositionChange> = Observable.create(observer => {
+    const subscription = this._positionChanges.subscribe(observer);
+    this._positionChangeSubscriptions++;
+
+    return () => {
+      subscription.unsubscribe();
+      this._positionChangeSubscriptions--;
+    };
+  });
 
   /** Ordered list of preferred positions, from most to least desirable. */
   get positions() {
@@ -119,12 +128,12 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   }
 
   constructor(
-    private _connectedTo: ElementRef,
+    connectedTo: ElementRef | HTMLElement,
     private _viewportRuler: ViewportRuler,
     private _document: Document,
     // @deletion-target 7.0.0 `_platform` parameter to be made required.
     private _platform?: Platform) {
-    this._origin = this._connectedTo.nativeElement;
+    this.setOrigin(connectedTo);
   }
 
   /** Attaches this position strategy to an overlay. */
@@ -370,8 +379,8 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
    * Sets the origin element, relative to which to position the overlay.
    * @param origin Reference to the new origin element.
    */
-  setOrigin(origin: ElementRef): this {
-    this._origin = origin.nativeElement;
+  setOrigin(origin: ElementRef | HTMLElement): this {
+    this._origin = origin instanceof ElementRef ? origin.nativeElement : origin;
     return this;
   }
 
@@ -582,9 +591,14 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     this._lastPosition = position;
 
     // Notify that the position has been changed along with its change properties.
-    const scrollableViewProperties = this._getScrollVisibility();
-    const changeEvent = new ConnectedOverlayPositionChange(position, scrollableViewProperties);
-    this._positionChanges.next(changeEvent);
+    // We only emit if we've got any subscriptions, because the scroll visibility
+    // calculcations can be somewhat expensive.
+    if (this._positionChangeSubscriptions > 0) {
+      const scrollableViewProperties = this._getScrollVisibility();
+      const changeEvent = new ConnectedOverlayPositionChange(position, scrollableViewProperties);
+      this._positionChanges.next(changeEvent);
+    }
+
     this._isInitialRender = false;
   }
 
@@ -721,8 +735,6 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       // Push the pane content towards the proper direction.
       if (position.overlayX === 'center') {
         styles.alignItems = 'center';
-      } else if (this._isRtl()) {
-        styles.alignItems = position.overlayX === 'end' ? 'flex-start' : 'flex-end';
       } else {
         styles.alignItems = position.overlayX === 'end' ? 'flex-end' : 'flex-start';
       }
@@ -930,7 +942,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
 
   /** Whether the we're dealing with an RTL context */
   private _isRtl() {
-    return this._overlayRef.getConfig().direction === 'rtl';
+    return this._overlayRef.getDirection() === 'rtl';
   }
 
   /** Determines whether the overlay uses exact or flexible positioning. */

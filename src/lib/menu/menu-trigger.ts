@@ -25,7 +25,6 @@ import {
   ElementRef,
   EventEmitter,
   Inject,
-  inject,
   InjectionToken,
   Input,
   OnDestroy,
@@ -44,16 +43,19 @@ import {MenuPositionX, MenuPositionY} from './menu-positions';
 
 /** Injection token that determines the scroll handling while the menu is open. */
 export const MAT_MENU_SCROLL_STRATEGY =
-    new InjectionToken<() => ScrollStrategy>('mat-menu-scroll-strategy', {
-      providedIn: 'root',
-      factory: MAT_MENU_SCROLL_STRATEGY_FACTORY,
-    });
+    new InjectionToken<() => ScrollStrategy>('mat-menu-scroll-strategy');
 
 /** @docs-private */
-export function MAT_MENU_SCROLL_STRATEGY_FACTORY(): () => ScrollStrategy {
-  const overlay = inject(Overlay);
+export function MAT_MENU_SCROLL_STRATEGY_FACTORY(overlay: Overlay): () => ScrollStrategy {
   return () => overlay.scrollStrategies.reposition();
 }
+
+/** @docs-private */
+export const MAT_MENU_SCROLL_STRATEGY_FACTORY_PROVIDER = {
+  provide: MAT_MENU_SCROLL_STRATEGY,
+  deps: [Overlay],
+  useFactory: MAT_MENU_SCROLL_STRATEGY_FACTORY,
+};
 
 /** Default top padding of the menu panel. */
 export const MENU_PANEL_TOP_PADDING = 8;
@@ -193,7 +195,6 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     }
 
     const overlayRef = this._createOverlay();
-    overlayRef.setDirection(this.dir);
     overlayRef.attach(this._portal);
 
     if (this.menu.lazyContent) {
@@ -233,7 +234,6 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
 
     const menu = this.menu;
 
-    this._resetMenu();
     this._closeSubscription.unsubscribe();
     this._overlayRef.detach();
 
@@ -243,11 +243,20 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
       if (menu.lazyContent) {
         // Wait for the exit animation to finish before detaching the content.
         menu._animationDone
-          .pipe(take(1))
-          .subscribe(() => menu.lazyContent!.detach());
+          .pipe(filter(event => event.toState === 'void'), take(1))
+          .subscribe(() => {
+            menu.lazyContent!.detach();
+            this._resetMenu();
+          });
+      } else {
+        this._resetMenu();
       }
-    } else if (menu.lazyContent) {
-      menu.lazyContent.detach();
+    } else {
+      this._resetMenu();
+
+      if (menu.lazyContent) {
+        menu.lazyContent.detach();
+      }
     }
   }
 
@@ -343,7 +352,8 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
       positionStrategy: this._getPosition(),
       hasBackdrop: this.menu.hasBackdrop == null ? !this.triggersSubmenu() : this.menu.hasBackdrop,
       backdropClass: this.menu.backdropClass || 'cdk-overlay-transparent-backdrop',
-      scrollStrategy: this._scrollStrategy()
+      scrollStrategy: this._scrollStrategy(),
+      direction: this._dir
     });
   }
 

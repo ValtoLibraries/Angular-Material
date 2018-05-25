@@ -27,7 +27,6 @@ import {
   ElementRef,
   EventEmitter,
   Inject,
-  inject,
   InjectionToken,
   Input,
   NgZone,
@@ -51,16 +50,19 @@ let datepickerUid = 0;
 
 /** Injection token that determines the scroll handling while the calendar is open. */
 export const MAT_DATEPICKER_SCROLL_STRATEGY =
-    new InjectionToken<() => ScrollStrategy>('mat-datepicker-scroll-strategy', {
-      providedIn: 'root',
-      factory: MAT_DATEPICKER_SCROLL_STRATEGY_FACTORY,
-    });
+    new InjectionToken<() => ScrollStrategy>('mat-datepicker-scroll-strategy');
 
 /** @docs-private */
-export function MAT_DATEPICKER_SCROLL_STRATEGY_FACTORY(): () => ScrollStrategy {
-  const overlay = inject(Overlay);
+export function MAT_DATEPICKER_SCROLL_STRATEGY_FACTORY(overlay: Overlay): () => ScrollStrategy {
   return () => overlay.scrollStrategies.reposition();
 }
+
+/** @docs-private */
+export const MAT_DATEPICKER_SCROLL_STRATEGY_FACTORY_PROVIDER = {
+  provide: MAT_DATEPICKER_SCROLL_STRATEGY,
+  deps: [Overlay],
+  useFactory: MAT_DATEPICKER_SCROLL_STRATEGY_FACTORY,
+};
 
 // Boilerplate for applying mixins to MatDatepickerContent.
 /** @docs-private */
@@ -379,7 +381,7 @@ export class MatDatepicker<D> implements OnDestroy, CanColor {
   /** Open the calendar as a dialog. */
   private _openAsDialog(): void {
     this._dialogRef = this._dialog.open<MatDatepickerContent<D>>(MatDatepickerContent, {
-      direction: this._getDirection(),
+      direction: this._dir ? this._dir.value : 'ltr',
       viewContainerRef: this._viewContainerRef,
       panelClass: 'mat-datepicker-dialog',
     });
@@ -401,7 +403,6 @@ export class MatDatepicker<D> implements OnDestroy, CanColor {
     }
 
     if (!this._popupRef.hasAttached()) {
-      this._popupRef.setDirection(this._getDirection());
       this._popupComponentRef = this._popupRef.attach(this._calendarPortal);
       this._popupComponentRef.instance.datepicker = this;
       this._setColor();
@@ -419,7 +420,7 @@ export class MatDatepicker<D> implements OnDestroy, CanColor {
       positionStrategy: this._createPopupPositionStrategy(),
       hasBackdrop: true,
       backdropClass: 'mat-overlay-transparent-backdrop',
-      direction: this._getDirection(),
+      direction: this._dir,
       scrollStrategy: this._scrollStrategy(),
       panelClass: 'mat-datepicker-popup',
     });
@@ -490,10 +491,5 @@ export class MatDatepicker<D> implements OnDestroy, CanColor {
     if (this._dialogRef) {
       this._dialogRef.componentInstance.color = color;
     }
-  }
-
-  /** Returns the layout direction of the datepicker. */
-  private _getDirection() {
-    return this._dir ? this._dir.value : 'ltr';
   }
 }
