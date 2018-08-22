@@ -50,6 +50,20 @@ describe('MatChipList', () => {
 
         expect(chipsValid).toBe(true);
       });
+
+      it('should toggle the chips disabled state based on whether it is disabled', () => {
+        expect(chips.toArray().every(chip => chip.disabled)).toBe(false);
+
+        chipListInstance.disabled = true;
+        fixture.detectChanges();
+
+        expect(chips.toArray().every(chip => chip.disabled)).toBe(true);
+
+        chipListInstance.disabled = false;
+        fixture.detectChanges();
+
+        expect(chips.toArray().every(chip => chip.disabled)).toBe(false);
+      });
     });
 
     describe('with selected chips', () => {
@@ -112,6 +126,27 @@ describe('MatChipList', () => {
         fixture.detectChanges();
 
         expect(manager.activeItemIndex).toBe(lastIndex);
+      });
+
+      it('should be able to become focused when disabled', () => {
+        expect(chipListInstance.focused).toBe(false, 'Expected list to not be focused.');
+
+        chipListInstance.disabled = true;
+        fixture.detectChanges();
+
+        chipListInstance.focus();
+        fixture.detectChanges();
+
+        expect(chipListInstance.focused).toBe(false, 'Expected list to continue not to be focused');
+      });
+
+      it('should remove the tabindex from the list if it is disabled', () => {
+        expect(chipListNativeElement.getAttribute('tabindex')).toBeTruthy();
+
+        chipListInstance.disabled = true;
+        fixture.detectChanges();
+
+        expect(chipListNativeElement.hasAttribute('tabindex')).toBeFalsy();
       });
 
       describe('on chip destroy', () => {
@@ -318,6 +353,20 @@ describe('MatChipList', () => {
     describe('keyboard behavior', () => {
       beforeEach(() => {
         manager = chipListInstance._keyManager;
+      });
+
+      it('should maintain focus if the active chip is deleted', () => {
+        const secondChip = fixture.nativeElement.querySelectorAll('.mat-chip')[1];
+
+        secondChip.focus();
+        fixture.detectChanges();
+
+        expect(chipListInstance.chips.toArray().findIndex(chip => chip._hasFocus)).toBe(1);
+
+        dispatchKeyboardEvent(secondChip, 'keydown', DELETE);
+        fixture.detectChanges();
+
+        expect(chipListInstance.chips.toArray().findIndex(chip => chip._hasFocus)).toBe(1);
       });
 
       describe('when the input has focus', () => {
@@ -1073,15 +1122,22 @@ class StandardChipList {
     <mat-form-field>
       <mat-label>Add a chip</mat-label>
       <mat-chip-list #chipList>
-        <mat-chip>Chip 1</mat-chip>
-        <mat-chip>Chip 1</mat-chip>
-        <mat-chip>Chip 1</mat-chip>
+        <mat-chip *ngFor="let chip of chips" (removed)="remove(chip)">{{chip}}</mat-chip>
       </mat-chip-list>
       <input name="test" [matChipInputFor]="chipList"/>
     </mat-form-field>
   `
 })
 class FormFieldChipList {
+  chips = ['Chip 0', 'Chip 1', 'Chip 2'];
+
+  remove(chip: string) {
+    const index = this.chips.indexOf(chip);
+
+    if (index > -1) {
+      this.chips.splice(index, 1);
+    }
+  }
 }
 
 

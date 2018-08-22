@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, ElementRef, Input, TemplateRef} from '@angular/core';
+import {Directive, ElementRef, Input} from '@angular/core';
 import {
   CdkCell,
   CdkCellDef,
@@ -14,6 +14,11 @@ import {
   CdkHeaderCell,
   CdkHeaderCellDef,
 } from '@angular/cdk/table';
+
+// TODO(devversion): workaround for https://github.com/angular/material2/issues/12760
+export const _CdkCellDef = CdkCellDef;
+export const _CdkHeaderCellDef = CdkHeaderCellDef;
+export const _CdkFooterCellDef = CdkFooterCellDef;
 
 /**
  * Cell definition for the mat-table.
@@ -23,12 +28,7 @@ import {
   selector: '[matCellDef]',
   providers: [{provide: CdkCellDef, useExisting: MatCellDef}]
 })
-export class MatCellDef extends CdkCellDef {
-  // TODO(andrewseguin): Remove this constructor after compiler-cli is updated; see issue #9329
-  constructor(/** @docs-private */ public template: TemplateRef<any>) {
-    super(template);
-  }
-}
+export class MatCellDef extends _CdkCellDef {}
 
 /**
  * Header cell definition for the mat-table.
@@ -38,12 +38,7 @@ export class MatCellDef extends CdkCellDef {
   selector: '[matHeaderCellDef]',
   providers: [{provide: CdkHeaderCellDef, useExisting: MatHeaderCellDef}]
 })
-export class MatHeaderCellDef extends CdkHeaderCellDef {
-  // TODO(andrewseguin): Remove this constructor after compiler-cli is updated; see issue #9329
-  constructor(/** @docs-private */ public template: TemplateRef<any>) {
-    super(template);
-  }
-}
+export class MatHeaderCellDef extends _CdkHeaderCellDef {}
 
 /**
  * Footer cell definition for the mat-table.
@@ -53,12 +48,7 @@ export class MatHeaderCellDef extends CdkHeaderCellDef {
   selector: '[matFooterCellDef]',
   providers: [{provide: CdkFooterCellDef, useExisting: MatFooterCellDef}]
 })
-export class MatFooterCellDef extends CdkFooterCellDef {
-  // TODO(andrewseguin): Remove this constructor after compiler-cli is updated; see issue #9329
-  constructor(/** @docs-private */ public template: TemplateRef<any>) {
-    super(template);
-  }
-}
+export class MatFooterCellDef extends _CdkFooterCellDef {}
 
 /**
  * Column definition for the mat-table.
@@ -71,6 +61,12 @@ export class MatFooterCellDef extends CdkFooterCellDef {
 export class MatColumnDef extends CdkColumnDef {
   /** Unique name for this column. */
   @Input('matColumnDef') name: string;
+
+  /** Whether this column should be sticky positioned at the start of the row */
+  @Input() sticky: boolean;
+
+  /** Whether this column should be sticky positioned on the end of the row */
+  @Input() stickyEnd: boolean;
 }
 
 /** Header cell template container that adds the right classes and role. */

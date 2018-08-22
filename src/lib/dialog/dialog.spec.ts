@@ -24,7 +24,7 @@ import {Location} from '@angular/common';
 import {SpyLocation} from '@angular/common/testing';
 import {Directionality} from '@angular/cdk/bidi';
 import {MatDialogContainer} from './dialog-container';
-import {OverlayContainer, ScrollStrategy} from '@angular/cdk/overlay';
+import {OverlayContainer, ScrollStrategy, ScrollDispatcher, Overlay} from '@angular/cdk/overlay';
 import {A, ESCAPE} from '@angular/cdk/keycodes';
 import {dispatchKeyboardEvent} from '@angular/cdk/testing';
 import {
@@ -34,12 +34,14 @@ import {
   MatDialogRef,
   MAT_DIALOG_DEFAULT_OPTIONS
 } from './index';
+import {Subject} from 'rxjs';
 
 
 describe('MatDialog', () => {
   let dialog: MatDialog;
   let overlayContainer: OverlayContainer;
   let overlayContainerElement: HTMLElement;
+  let scrolledSubject = new Subject();
 
   let testViewContainerRef: ViewContainerRef;
   let viewContainerFixture: ComponentFixture<ComponentWithChildViewContainer>;
@@ -49,7 +51,10 @@ describe('MatDialog', () => {
     TestBed.configureTestingModule({
       imports: [MatDialogModule, DialogTestModule],
       providers: [
-        {provide: Location, useClass: SpyLocation}
+        {provide: Location, useClass: SpyLocation},
+        {provide: ScrollDispatcher, useFactory: () => ({
+          scrolled: () => scrolledSubject.asObservable()
+        })},
       ],
     });
 
@@ -117,7 +122,7 @@ describe('MatDialog', () => {
     const dialogRef = dialog.open(PizzaMsg, {viewContainerRef: testViewContainerRef});
     const spy = jasmine.createSpy('afterOpen spy');
 
-    dialogRef.afterOpen().subscribe(spy);
+    dialogRef.afterOpened().subscribe(spy);
 
     viewContainerFixture.detectChanges();
 
@@ -188,6 +193,26 @@ describe('MatDialog', () => {
     expect(overlayContainerElement.querySelector('mat-dialog-container')).toBeNull();
   }));
 
+  it('should dispatch the beforeClose and afterClose events when the ' +
+    'overlay is detached externally', fakeAsync(inject([Overlay], (overlay: Overlay) => {
+      const dialogRef = dialog.open(PizzaMsg, {
+        viewContainerRef: testViewContainerRef,
+        scrollStrategy: overlay.scrollStrategies.close()
+      });
+      const beforeCloseCallback = jasmine.createSpy('beforeClosed callback');
+      const afterCloseCallback = jasmine.createSpy('afterClosed callback');
+
+      dialogRef.beforeClose().subscribe(beforeCloseCallback);
+      dialogRef.afterClosed().subscribe(afterCloseCallback);
+
+      scrolledSubject.next();
+      viewContainerFixture.detectChanges();
+      flush();
+
+      expect(beforeCloseCallback).toHaveBeenCalledTimes(1);
+      expect(afterCloseCallback).toHaveBeenCalledTimes(1);
+    })));
+
   it('should close a dialog and get back a result before it is closed', fakeAsync(() => {
     const dialogRef = dialog.open(PizzaMsg, {viewContainerRef: testViewContainerRef});
 
@@ -200,7 +225,7 @@ describe('MatDialog', () => {
           .not.toBeNull('dialog container exists when beforeClose is called');
     });
 
-    dialogRef.beforeClose().subscribe(beforeCloseHandler);
+    dialogRef.beforeClosed().subscribe(beforeCloseHandler);
     dialogRef.close('Bulbasaur');
     viewContainerFixture.detectChanges();
     flush();
@@ -303,7 +328,7 @@ describe('MatDialog', () => {
   }));
 
   it('should notify the observers if a dialog has been opened', () => {
-    dialog.afterOpen.subscribe(ref => {
+    dialog.afterOpened.subscribe(ref => {
       expect(dialog.open(PizzaMsg, {
         viewContainerRef: testViewContainerRef
       })).toBe(ref);
@@ -510,6 +535,27 @@ describe('MatDialog', () => {
     dialogRef.updateSize('200px');
 
     expect(overlayPane.style.width).toBe('200px');
+  });
+
+  it('should reset the overlay dimensions to their initial size', () => {
+    let dialogRef = dialog.open(PizzaMsg);
+
+    viewContainerFixture.detectChanges();
+
+    let overlayPane = overlayContainerElement.querySelector('.cdk-overlay-pane') as HTMLElement;
+
+    expect(overlayPane.style.width).toBeFalsy();
+    expect(overlayPane.style.height).toBeFalsy();
+
+    dialogRef.updateSize('200px', '200px');
+
+    expect(overlayPane.style.width).toBe('200px');
+    expect(overlayPane.style.height).toBe('200px');
+
+    dialogRef.updateSize();
+
+    expect(overlayPane.style.width).toBeFalsy();
+    expect(overlayPane.style.height).toBeFalsy();
   });
 
   it('should allow setting the layout direction', () => {
@@ -962,6 +1008,37 @@ describe('MatDialog', () => {
         expect(document.activeElement.tagName)
             .toBe('MAT-DIALOG-CONTAINER', 'Expected dialog container to be focused.');
       }));
+
+    it('should be able to disable focus restoration', fakeAsync(() => {
+      // Create a element that has focus before the dialog is opened.
+      const button = document.createElement('button');
+      button.id = 'dialog-trigger';
+      document.body.appendChild(button);
+      button.focus();
+
+      const dialogRef = dialog.open(PizzaMsg, {
+        viewContainerRef: testViewContainerRef,
+        restoreFocus: false
+      });
+
+      flushMicrotasks();
+      viewContainerFixture.detectChanges();
+      flushMicrotasks();
+
+      expect(document.activeElement.id)
+          .not.toBe('dialog-trigger', 'Expected the focus to change when dialog was opened.');
+
+      dialogRef.close();
+      flushMicrotasks();
+      viewContainerFixture.detectChanges();
+      tick(500);
+
+      expect(document.activeElement.id).not.toBe('dialog-trigger',
+          'Expected focus not to have been restored.');
+
+      document.body.removeChild(button);
+    }));
+
 
   });
 

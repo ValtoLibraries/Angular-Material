@@ -17,10 +17,11 @@ import {
   validateVerticalPosition,
 } from './connected-position';
 import {Observable, Subscription, Subject} from 'rxjs';
-import {OverlayRef} from '../overlay-ref';
+import {OverlayReference} from '../overlay-reference';
 import {isElementScrolledOutsideView, isElementClippedByScrolling} from './scroll-clip';
-import {coerceCssPixelValue} from '@angular/cdk/coercion';
+import {coerceCssPixelValue, coerceArray} from '@angular/cdk/coercion';
 import {Platform} from '@angular/cdk/platform';
+import {OverlayContainer} from '../overlay-container';
 
 // TODO: refactor clipping detection into a separate thing (part of scrolling module)
 // TODO: doesn't handle both flexible width and height when it has to scroll along both axis.
@@ -34,7 +35,7 @@ import {Platform} from '@angular/cdk/platform';
  */
 export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   /** The overlay to which this strategy is attached. */
-  private _overlayRef: OverlayRef;
+  private _overlayRef: OverlayReference;
 
   /** Whether we're performing the very first positioning of the overlay. */
   private _isInitialRender = true;
@@ -111,6 +112,9 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   /** Amount of subscribers to the `positionChanges` stream. */
   private _positionChangeSubscriptions = 0;
 
+  /** Keeps track of the CSS classes that the position strategy has applied on the overlay panel. */
+  private _appliedPanelClasses: string[] = [];
+
   /** Observable sequence of position changes. */
   positionChanges: Observable<ConnectedOverlayPositionChange> = Observable.create(observer => {
     const subscription = this._positionChanges.subscribe(observer);
@@ -131,13 +135,14 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     connectedTo: ElementRef | HTMLElement,
     private _viewportRuler: ViewportRuler,
     private _document: Document,
-    // @deletion-target 7.0.0 `_platform` parameter to be made required.
-    private _platform?: Platform) {
+    // @breaking-change 7.0.0 `_platform` and `_overlayContainer` parameters to be made required.
+    private _platform?: Platform,
+    private _overlayContainer?: OverlayContainer) {
     this.setOrigin(connectedTo);
   }
 
   /** Attaches this position strategy to an overlay. */
-  attach(overlayRef: OverlayRef): void {
+  attach(overlayRef: OverlayReference): void {
     if (this._overlayRef && overlayRef !== this._overlayRef) {
       throw Error('This position strategy is already attached to an overlay');
     }
@@ -169,6 +174,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
    */
   apply(): void {
     // We shouldn't do anything if the strategy was disposed or we're on the server.
+    // @breaking-change 7.0.0 Remove `_platform` null check once it's guaranteed to be defined.
     if (this._isDisposed || (this._platform && !this._platform.isBrowser)) {
       return;
     }
@@ -181,6 +187,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       return;
     }
 
+    this._clearPanelClasses();
     this._resetOverlayElementStyles();
     this._resetBoundingBoxStyles();
 
@@ -279,6 +286,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   }
 
   detach() {
+    this._clearPanelClasses();
     this._resizeSubscription.unsubscribe();
   }
 
@@ -587,6 +595,10 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     this._setOverlayElementStyles(originPoint, position);
     this._setBoundingBoxStyles(originPoint, position);
 
+    if (position.panelClass) {
+      this._addPanelClasses(position.panelClass);
+    }
+
     // Save the last connected position in case the position needs to be re-calculated.
     this._lastPosition = position;
 
@@ -839,6 +851,18 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       overlayPoint = this._pushOverlayOnScreen(overlayPoint, this._overlayRect);
     }
 
+    // @breaking-change 7.0.0 Currently the `_overlayContainer` is optional in order to avoid a
+    // breaking change. The null check here can be removed once the `_overlayContainer` becomes
+    // a required parameter.
+    let virtualKeyboardOffset = this._overlayContainer ?
+        this._overlayContainer.getContainerElement().getBoundingClientRect().top : 0;
+
+    // Normally this would be zero, however when the overlay is attached to an input (e.g. in an
+    // autocomplete), mobile browsers will shift everything in order to put the input in the middle
+    // of the screen and to make space for the virtual keyboard. We need to account for this offset,
+    // otherwise our positioning will be thrown off.
+    overlayPoint.y -= virtualKeyboardOffset;
+
     // We want to set either `top` or `bottom` based on whether the overlay wants to appear
     // above or below the origin and the direction in which the element will expand.
     if (position.overlayY === 'bottom') {
@@ -976,6 +1000,26 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       validateVerticalPosition('overlayY', pair.overlayY);
     });
   }
+
+  /** Adds a single CSS class or an array of classes on the overlay panel. */
+  private _addPanelClasses(cssClasses: string | string[]) {
+    if (this._pane) {
+      coerceArray(cssClasses).forEach(cssClass => {
+        if (this._appliedPanelClasses.indexOf(cssClass) === -1) {
+          this._appliedPanelClasses.push(cssClass);
+          this._pane.classList.add(cssClass);
+        }
+      });
+    }
+  }
+
+  /** Clears the classes that the position strategy has applied from the overlay panel. */
+  private _clearPanelClasses() {
+    if (this._pane) {
+      this._appliedPanelClasses.forEach(cssClass => this._pane.classList.remove(cssClass));
+      this._appliedPanelClasses = [];
+    }
+  }
 }
 
 /** A simple (x, y) coordinate. */
@@ -1037,6 +1081,7 @@ export interface ConnectedPosition {
   weight?: number;
   offsetX?: number;
   offsetY?: number;
+  panelClass?: string | string[];
 }
 
 /** Shallow-extends a stylesheet object with another stylesheet object. */

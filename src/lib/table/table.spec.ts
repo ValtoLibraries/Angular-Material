@@ -1,6 +1,13 @@
 import {DataSource} from '@angular/cdk/collections';
 import {Component, OnInit, ViewChild} from '@angular/core';
-import {async, ComponentFixture, fakeAsync, flushMicrotasks, TestBed} from '@angular/core/testing';
+import {
+  async,
+  ComponentFixture,
+  fakeAsync,
+  flushMicrotasks,
+  TestBed,
+  tick,
+} from '@angular/core/testing';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {BehaviorSubject, Observable} from 'rxjs';
 import {MatPaginator, MatPaginatorModule} from '../paginator/index';
@@ -21,6 +28,8 @@ describe('MatTable', () => {
         NativeHtmlTableApp,
         MatTableWithSortApp,
         MatTableWithPaginatorApp,
+        StickyTableApp,
+        TableWithNgContainerRow,
       ],
     }).compileComponents();
   }));
@@ -117,6 +126,24 @@ describe('MatTable', () => {
       [data[2].a, data[2].b, data[2].c],
     ]);
   });
+
+  it('should apply custom sticky CSS class to sticky cells', () => {
+    let fixture = TestBed.createComponent(StickyTableApp);
+    fixture.detectChanges();
+
+    const stuckCellElement = fixture.nativeElement.querySelector('.mat-table th')!;
+    expect(stuckCellElement.classList).toContain('mat-table-sticky');
+  });
+
+  // Note: needs to be fakeAsync so it catches the error.
+  it('should not throw when a row definition is on an ng-container', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TableWithNgContainerRow);
+
+    expect(() => {
+      fixture.detectChanges();
+      tick();
+    }).not.toThrow();
+  }));
 
   describe('with MatTableDataSource and sort/pagination/filter', () => {
     let tableElement: HTMLElement;
@@ -391,6 +418,38 @@ describe('MatTable', () => {
         ['Footer A', 'Footer B', 'Footer C'],
       ]);
     }));
+
+    it('should sort strings with numbers larger than MAX_SAFE_INTEGER correctly', () => {
+      const large = '9563256840123535';
+      const larger = '9563256840123536';
+      const largest = '9563256840123537';
+
+      dataSource.data[0].a = largest;
+      dataSource.data[1].a = larger;
+      dataSource.data[2].a = large;
+
+      component.sort.sort(component.sortHeader);
+      fixture.detectChanges();
+      expectTableToMatchContent(tableElement, [
+        ['Column A', 'Column B', 'Column C'],
+        [large, 'b_3', 'c_3'],
+        [larger, 'b_2', 'c_2'],
+        [largest, 'b_1', 'c_1'],
+        ['Footer A', 'Footer B', 'Footer C'],
+      ]);
+
+
+      component.sort.sort(component.sortHeader);
+      fixture.detectChanges();
+      expectTableToMatchContent(tableElement, [
+        ['Column A', 'Column B', 'Column C'],
+        [largest, 'b_1', 'c_1'],
+        [larger, 'b_2', 'c_2'],
+        [large, 'b_3', 'c_3'],
+        ['Footer A', 'Footer B', 'Footer C'],
+      ]);
+    });
+
   });
 });
 
@@ -402,8 +461,8 @@ interface TestData {
 
 class FakeDataSource extends DataSource<TestData> {
   _dataChange = new BehaviorSubject<TestData[]>([]);
-  set data(data: TestData[]) { this._dataChange.next(data); }
   get data() { return this._dataChange.getValue(); }
+  set data(data: TestData[]) { this._dataChange.next(data); }
 
   constructor() {
     super();
@@ -496,6 +555,26 @@ class MatTableApp {
 class NativeHtmlTableApp {
   dataSource: FakeDataSource | null = new FakeDataSource();
   columnsToRender = ['column_a', 'column_b', 'column_c'];
+
+  @ViewChild(MatTable) table: MatTable<TestData>;
+}
+
+@Component({
+  template: `
+    <table mat-table [dataSource]="dataSource">
+      <ng-container matColumnDef="column_a">
+        <th mat-header-cell *matHeaderCellDef> Column A </th>
+        <td mat-cell *matCellDef="let row"> {{row.a}} </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columnsToRender; sticky: true"></tr>
+      <tr mat-row *matRowDef="let row; columns: columnsToRender"></tr>
+    </table>
+  `
+})
+class StickyTableApp {
+  dataSource = new FakeDataSource();
+  columnsToRender = ['column_a'];
 
   @ViewChild(MatTable) table: MatTable<TestData>;
 }
@@ -688,6 +767,27 @@ class MatTableWithPaginatorApp implements OnInit {
     this.dataSource!.paginator = this.paginator;
   }
 }
+
+@Component({
+  template: `
+    <mat-table [dataSource]="dataSource">
+      <ng-container matColumnDef="column_a">
+        <mat-header-cell *matHeaderCellDef>Column A</mat-header-cell>
+        <mat-cell *matCellDef="let row">{{row.a}}</mat-cell>
+      </ng-container>
+
+      <mat-header-row *matHeaderRowDef="columnsToRender"></mat-header-row>
+      <ng-container *matRowDef="let row; columns: columnsToRender">
+        <mat-row></mat-row>
+      </ng-container>
+    </mat-table>
+  `
+})
+class TableWithNgContainerRow {
+  dataSource: FakeDataSource | null = new FakeDataSource();
+  columnsToRender = ['column_a'];
+}
+
 
 function getElements(element: Element, query: string): Element[] {
   return [].slice.call(element.querySelectorAll(query));

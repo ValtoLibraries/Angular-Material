@@ -59,6 +59,7 @@ export function throwMatDialogContentAlreadyAttachedError() {
   host: {
     'class': 'mat-dialog-container',
     'tabindex': '-1',
+    'aria-modal': 'true',
     '[attr.id]': '_id',
     '[attr.role]': '_config.role',
     '[attr.aria-labelledby]': '_config.ariaLabel ? null : _ariaLabelledBy',
@@ -147,7 +148,7 @@ export class MatDialogContainer extends BasePortalOutlet {
     const toFocus = this._elementFocusedBeforeDialogWasOpened;
 
     // We need the extra check, because IE can set the `activeElement` to null in some cases.
-    if (toFocus && typeof toFocus.focus === 'function') {
+    if (this._config.restoreFocus && toFocus && typeof toFocus.focus === 'function') {
       toFocus.focus();
     }
 

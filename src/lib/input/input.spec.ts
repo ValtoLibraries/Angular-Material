@@ -1127,6 +1127,49 @@ describe('MatInput with appearance', () => {
       expect(testComponent.formField.floatLabel).toBe('auto');
     }
   }));
+
+  it('should recalculate gaps when switching to outline appearance after init', fakeAsync(() => {
+    fixture.destroy();
+    TestBed.resetTestingModule();
+
+    const outlineFixture = createComponent(MatInputWithAppearanceAndLabel);
+
+    outlineFixture.detectChanges();
+    outlineFixture.componentInstance.appearance = 'legacy';
+    outlineFixture.detectChanges();
+    flush();
+
+    outlineFixture.componentInstance.appearance = 'outline';
+    outlineFixture.detectChanges();
+    flush();
+    outlineFixture.detectChanges();
+
+    const wrapperElement = outlineFixture.nativeElement;
+    const outlineStart = wrapperElement.querySelector('.mat-form-field-outline-start');
+    const outlineGap = wrapperElement.querySelector('.mat-form-field-outline-gap');
+
+    expect(parseInt(outlineStart.style.width)).toBeGreaterThan(0);
+    expect(parseInt(outlineGap.style.width)).toBeGreaterThan(0);
+  }));
+
+  it('should not set an outline gap if the label is empty', fakeAsync(() => {
+    fixture.destroy();
+    TestBed.resetTestingModule();
+
+    const outlineFixture = createComponent(MatInputWithAppearanceAndLabel);
+
+    outlineFixture.componentInstance.labelContent = '';
+    outlineFixture.detectChanges();
+    outlineFixture.componentInstance.appearance = 'outline';
+    outlineFixture.detectChanges();
+    flush();
+    outlineFixture.detectChanges();
+
+    const outlineGap = outlineFixture.nativeElement.querySelector('.mat-form-field-outline-gap');
+
+    expect(parseInt(outlineGap.style.width)).toBeFalsy();
+  }));
+
 });
 
 describe('MatFormField default options', () => {
@@ -1565,6 +1608,19 @@ class MatInputWithLabelAndPlaceholder {
 class MatInputWithAppearance {
   @ViewChild(MatFormField) formField: MatFormField;
   appearance: MatFormFieldAppearance;
+}
+
+@Component({
+  template: `
+    <mat-form-field [appearance]="appearance">
+      <mat-label>{{labelContent}}</mat-label>
+      <input matInput>
+    </mat-form-field>
+  `
+})
+class MatInputWithAppearanceAndLabel {
+  appearance: MatFormFieldAppearance;
+  labelContent = 'Label';
 }
 
 @Component({

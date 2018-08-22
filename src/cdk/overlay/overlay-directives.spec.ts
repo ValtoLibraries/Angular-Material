@@ -3,7 +3,7 @@ import {By} from '@angular/platform-browser';
 import {ComponentFixture, TestBed, async, inject} from '@angular/core/testing';
 import {Directionality} from '@angular/cdk/bidi';
 import {dispatchKeyboardEvent} from '@angular/cdk/testing';
-import {ESCAPE} from '@angular/cdk/keycodes';
+import {ESCAPE, A} from '@angular/cdk/keycodes';
 import {CdkConnectedOverlay, OverlayModule, CdkOverlayOrigin} from './index';
 import {OverlayContainer} from './overlay-container';
 import {
@@ -51,15 +51,11 @@ describe('Overlay directives', () => {
     fixture.detectChanges();
 
     expect(overlayContainerElement.textContent).toContain('Menu content');
-    expect(getPaneElement().style.pointerEvents)
-      .toBe('auto', 'Expected the overlay pane to enable pointerEvents when attached.');
 
     fixture.componentInstance.isOpen = false;
     fixture.detectChanges();
 
     expect(overlayContainerElement.textContent).toBe('');
-    expect(getPaneElement().style.pointerEvents)
-      .toBe('none', 'Expected the overlay pane to disable pointerEvents when detached.');
   });
 
   it('should destroy the overlay when the directive is destroyed', () => {
@@ -327,6 +323,7 @@ describe('Overlay directives', () => {
         // TODO(jelbourn) figure out why, when compiling with bazel, these offsets are required.
         offsetX: 0,
         offsetY: 0,
+        panelClass: 'custom-class'
       }];
 
       fixture.componentInstance.isOpen = true;
@@ -352,7 +349,8 @@ describe('Overlay directives', () => {
         overlayX: 'start',
         overlayY: 'top',
         offsetX: 20,
-        offsetY: 10
+        offsetY: 10,
+        panelClass: 'custom-class'
       }];
 
       fixture.componentInstance.isOpen = true;
@@ -447,6 +445,18 @@ describe('Overlay directives', () => {
       expect(fixture.componentInstance.detachHandler).toHaveBeenCalled();
     });
 
+    it('should emit the keydown events from the overlay', () => {
+      expect(fixture.componentInstance.keydownHandler).not.toHaveBeenCalled();
+
+      fixture.componentInstance.isOpen = true;
+      fixture.detectChanges();
+
+      const event = dispatchKeyboardEvent(document.body, 'keydown', A);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.keydownHandler).toHaveBeenCalledWith(event);
+    });
+
   });
 
 });
@@ -474,6 +484,7 @@ describe('Overlay directives', () => {
             (positionChange)="positionChangeHandler($event)"
             (attach)="attachHandler()"
             (detach)="detachHandler()"
+            (overlayKeydown)="keydownHandler($event)"
             [cdkConnectedOverlayMinWidth]="minWidth"
             [cdkConnectedOverlayMinHeight]="minHeight"
             [cdkConnectedOverlayPositions]="positionOverrides">
@@ -499,7 +510,8 @@ class ConnectedOverlayDirectiveTest {
   growAfterOpen: boolean;
   push: boolean;
   backdropClickHandler = jasmine.createSpy('backdropClick handler');
-  positionChangeHandler = jasmine.createSpy('positionChangeHandler');
+  positionChangeHandler = jasmine.createSpy('positionChange handler');
+  keydownHandler = jasmine.createSpy('keydown handler');
   positionOverrides: ConnectionPositionPair[];
   attachHandler = jasmine.createSpy('attachHandler').and.callFake(() => {
     this.attachResult =

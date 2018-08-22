@@ -1,5 +1,5 @@
 import {ComponentPortal, PortalModule} from '@angular/cdk/portal';
-import {CdkScrollable, ScrollDispatchModule} from '@angular/cdk/scrolling';
+import {CdkScrollable, ScrollingModule} from '@angular/cdk/scrolling';
 import {MockNgZone} from '@angular/cdk/testing';
 import {Component, ElementRef, NgModule, NgZone} from '@angular/core';
 import {inject, TestBed} from '@angular/core/testing';
@@ -30,7 +30,7 @@ describe('FlexibleConnectedPositionStrategy', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [ScrollDispatchModule, OverlayModule, OverlayTestModule],
+      imports: [ScrollingModule, OverlayModule, OverlayTestModule],
       providers: [{provide: NgZone, useFactory: () => zone = new MockNgZone()}]
     });
 
@@ -116,6 +116,39 @@ describe('FlexibleConnectedPositionStrategy', () => {
     expect(() => positionStrategy.reapplyLastPosition()).not.toThrow();
 
     document.body.removeChild(origin);
+  });
+
+  it('should for the virtual keyboard offset when positioning the overlay', () => {
+    const originElement = createPositionedBlockElement();
+    document.body.appendChild(originElement);
+
+    // Position the element so it would have enough space to fit.
+    originElement.style.top = '200px';
+    originElement.style.left = '70px';
+
+    // Pull the element up ourselves to simulate what a mobile
+    // browser would do when the virtual keyboard is being shown.
+    overlayContainer.getContainerElement().style.top = '-100px';
+
+    attachOverlay({
+      positionStrategy: overlay.position()
+        .flexibleConnectedTo(originElement)
+        .withFlexibleDimensions(false)
+        .withPush(false)
+        .withPositions([{
+          originX: 'start',
+          originY: 'bottom',
+          overlayX: 'start',
+          overlayY: 'top'
+        }])
+    });
+
+    const originRect = originElement.getBoundingClientRect();
+    const overlayRect = overlayRef.overlayElement.getBoundingClientRect();
+
+    expect(Math.floor(overlayRect.top)).toBe(Math.floor(originRect.bottom));
+
+    document.body.removeChild(originElement);
   });
 
   describe('without flexible dimensions and pushing', () => {
@@ -1764,6 +1797,149 @@ describe('FlexibleConnectedPositionStrategy', () => {
         } as any]);
       }).toThrow();
     });
+  });
+
+  describe('panel classes', () => {
+    let originElement: HTMLElement;
+    let positionStrategy: FlexibleConnectedPositionStrategy;
+
+    beforeEach(() => {
+      originElement = createPositionedBlockElement();
+      document.body.appendChild(originElement);
+      positionStrategy = overlay.position()
+          .flexibleConnectedTo(originElement)
+          .withFlexibleDimensions(false)
+          .withPush(false);
+    });
+
+    afterEach(() => {
+      document.body.removeChild(originElement);
+    });
+
+    it('should be able to apply a class based on the position', () => {
+      positionStrategy.withPositions([{
+        originX: 'start',
+        originY: 'bottom',
+        overlayX: 'start',
+        overlayY: 'top',
+        panelClass: 'is-below'
+      }]);
+
+      attachOverlay({positionStrategy});
+
+      expect(overlayRef.overlayElement.classList).toContain('is-below');
+    });
+
+    it('should be able to apply multiple classes based on the position', () => {
+      positionStrategy.withPositions([{
+        originX: 'start',
+        originY: 'bottom',
+        overlayX: 'start',
+        overlayY: 'top',
+        panelClass: ['is-below', 'is-under']
+      }]);
+
+      attachOverlay({positionStrategy});
+
+      expect(overlayRef.overlayElement.classList).toContain('is-below');
+      expect(overlayRef.overlayElement.classList).toContain('is-under');
+    });
+
+    it('should remove the panel class when detaching', () => {
+      positionStrategy.withPositions([{
+        originX: 'start',
+        originY: 'bottom',
+        overlayX: 'start',
+        overlayY: 'top',
+        panelClass: 'is-below'
+      }]);
+
+      attachOverlay({positionStrategy});
+      expect(overlayRef.overlayElement.classList).toContain('is-below');
+
+      overlayRef.detach();
+      expect(overlayRef.overlayElement.classList).not.toContain('is-below');
+    });
+
+    it('should clear the previous classes when the position changes', () => {
+      originElement.style.top = '200px';
+      originElement.style.right = '25px';
+
+      positionStrategy.withPositions([
+        {
+          originX: 'end',
+          originY: 'center',
+          overlayX: 'start',
+          overlayY: 'center',
+          panelClass: ['is-center', 'is-in-the-middle']
+        },
+        {
+          originX: 'start',
+          originY: 'bottom',
+          overlayX: 'end',
+          overlayY: 'top',
+          panelClass: 'is-below'
+        }
+      ]);
+
+      attachOverlay({positionStrategy});
+
+      const overlayClassList = overlayRef.overlayElement.classList;
+
+      expect(overlayClassList).not.toContain('is-center');
+      expect(overlayClassList).not.toContain('is-in-the-middle');
+      expect(overlayClassList).toContain('is-below');
+
+      // Move the element so another position is applied.
+      originElement.style.top = '200px';
+      originElement.style.left = '200px';
+
+      overlayRef.updatePosition();
+
+      expect(overlayClassList).toContain('is-center');
+      expect(overlayClassList).toContain('is-in-the-middle');
+      expect(overlayClassList).not.toContain('is-below');
+    });
+
+    it('should not clear the existing `panelClass` from the `OverlayRef`', () => {
+      originElement.style.top = '200px';
+      originElement.style.right = '25px';
+
+      positionStrategy.withPositions([
+        {
+          originX: 'end',
+          originY: 'center',
+          overlayX: 'start',
+          overlayY: 'center',
+          panelClass: ['is-center', 'is-in-the-middle']
+        },
+        {
+          originX: 'start',
+          originY: 'bottom',
+          overlayX: 'end',
+          overlayY: 'top',
+          panelClass: 'is-below'
+        }
+      ]);
+
+      attachOverlay({
+        panelClass: 'custom-panel-class',
+        positionStrategy
+      });
+
+      const overlayClassList = overlayRef.overlayElement.classList;
+
+      expect(overlayClassList).toContain('custom-panel-class');
+
+      // Move the element so another position is applied.
+      originElement.style.top = '200px';
+      originElement.style.left = '200px';
+
+      overlayRef.updatePosition();
+
+      expect(overlayClassList).toContain('custom-panel-class');
+    });
+
   });
 
 });

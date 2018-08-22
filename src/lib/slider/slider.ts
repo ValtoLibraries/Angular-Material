@@ -224,7 +224,15 @@ export class MatSlider extends _MatSliderMixinBase
   }
   set value(v: number | null) {
     if (v !== this._value) {
-      this._value = coerceNumberProperty(v);
+      let value = coerceNumberProperty(v);
+
+      // While incrementing by a decimal we can end up with values like 33.300000000000004.
+      // Truncate it to ensure that it matches the label and to make it easier to work with.
+      if (this._roundToDecimal) {
+        value = parseFloat(value.toFixed(this._roundToDecimal));
+      }
+
+      this._value = value;
       this._percent = this._calculatePercentage(this._value);
 
       // Since this also modifies the percentage, we need to let the change detection know.
@@ -253,6 +261,13 @@ export class MatSlider extends _MatSliderMixinBase
 
   /** Event emitted when the slider thumb moves. */
   @Output() readonly input: EventEmitter<MatSliderChange> = new EventEmitter<MatSliderChange>();
+
+  /**
+   * Emits when the raw value of the slider changes. This is here primarily
+   * to facilitate the two-way binding for the `value` input.
+   * @docs-private
+   */
+  @Output() readonly valueChange: EventEmitter<number | null> = new EventEmitter<number | null>();
 
   /** The value to be used for display purposes. */
   get displayValue(): string | number {
@@ -331,19 +346,25 @@ export class MatSlider extends _MatSliderMixinBase
 
   /** CSS styles for the track background element. */
   get _trackBackgroundStyles(): { [key: string]: string } {
-    let axis = this.vertical ? 'Y' : 'X';
-    let sign = this._invertMouseCoords ? '-' : '';
+    const axis = this.vertical ? 'Y' : 'X';
+    const scale = this.vertical ? `1, ${1 - this.percent}, 1` : `${1 - this.percent}, 1, 1`;
+    const sign = this._shouldInvertMouseCoords() ? '-' : '';
+
     return {
-      'transform': `translate${axis}(${sign}${this._thumbGap}px) scale${axis}(${1 - this.percent})`
+      // scale3d avoids some rendering issues in Chrome. See #12071.
+      transform: `translate${axis}(${sign}${this._thumbGap}px) scale3d(${scale})`
     };
   }
 
   /** CSS styles for the track fill element. */
   get _trackFillStyles(): { [key: string]: string } {
-    let axis = this.vertical ? 'Y' : 'X';
-    let sign = this._invertMouseCoords ? '' : '-';
+    const axis = this.vertical ? 'Y' : 'X';
+    const scale = this.vertical ? `1, ${this.percent}, 1` : `${this.percent}, 1, 1`;
+    const sign = this._shouldInvertMouseCoords() ? '' : '-';
+
     return {
-      'transform': `translate${axis}(${sign}${this._thumbGap}px) scale${axis}(${this.percent})`
+      // scale3d avoids some rendering issues in Chrome. See #12071.
+      transform: `translate${axis}(${sign}${this._thumbGap}px) scale3d(${scale})`
     };
   }
 
@@ -352,7 +373,7 @@ export class MatSlider extends _MatSliderMixinBase
     let axis = this.vertical ? 'Y' : 'X';
     // For a horizontal slider in RTL languages we push the ticks container off the left edge
     // instead of the right edge to avoid causing a horizontal scrollbar to appear.
-    let sign = !this.vertical && this._direction == 'rtl' ? '' : '-';
+    let sign = !this.vertical && this._getDirection() == 'rtl' ? '' : '-';
     let offset = this._tickIntervalPercent / 2 * 100;
     return {
       'transform': `translate${axis}(${sign}${offset}%)`
@@ -367,8 +388,8 @@ export class MatSlider extends _MatSliderMixinBase
     // Depending on the direction we pushed the ticks container, push the ticks the opposite
     // direction to re-center them but clip off the end edge. In RTL languages we need to flip the
     // ticks 180 degrees so we're really cutting off the end edge abd not the start.
-    let sign = !this.vertical && this._direction == 'rtl' ? '-' : '';
-    let rotate = !this.vertical && this._direction == 'rtl' ? ' rotate(180deg)' : '';
+    let sign = !this.vertical && this._getDirection() == 'rtl' ? '-' : '';
+    let rotate = !this.vertical && this._getDirection() == 'rtl' ? ' rotate(180deg)' : '';
     let styles: { [key: string]: string } = {
       'backgroundSize': backgroundSize,
       // Without translateZ ticks sometimes jitter as the slider moves on Chrome & Firefox.
@@ -390,7 +411,7 @@ export class MatSlider extends _MatSliderMixinBase
     // For a horizontal slider in RTL languages we push the thumb container off the left edge
     // instead of the right edge to avoid causing a horizontal scrollbar to appear.
     let invertOffset =
-        (this._direction == 'rtl' && !this.vertical) ? !this._invertAxis : this._invertAxis;
+        (this._getDirection() == 'rtl' && !this.vertical) ? !this._invertAxis : this._invertAxis;
     let offset = (invertOffset ? this.percent : 1 - this.percent) * 100;
     return {
       'transform': `translate${axis}(-${offset}%)`
@@ -421,12 +442,12 @@ export class MatSlider extends _MatSliderMixinBase
    * Whether mouse events should be converted to a slider position by calculating their distance
    * from the right or bottom edge of the slider as opposed to the top or left.
    */
-  private get _invertMouseCoords() {
-    return (this._direction == 'rtl' && !this.vertical) ? !this._invertAxis : this._invertAxis;
+  private _shouldInvertMouseCoords() {
+    return (this._getDirection() == 'rtl' && !this.vertical) ? !this._invertAxis : this._invertAxis;
   }
 
   /** The language direction for this slider element. */
-  private get _direction() {
+  private _getDirection() {
     return (this._dir && this._dir.value == 'rtl') ? 'rtl' : 'ltr';
   }
 
@@ -435,7 +456,7 @@ export class MatSlider extends _MatSliderMixinBase
               private _changeDetectorRef: ChangeDetectorRef,
               @Optional() private _dir: Directionality,
               @Attribute('tabindex') tabIndex: string,
-              // @deletion-target 7.0.0 `_animationMode` parameter to be made required.
+              // @breaking-change 7.0.0 `_animationMode` parameter to be made required.
               @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string) {
     super(elementRef);
 
@@ -444,7 +465,7 @@ export class MatSlider extends _MatSliderMixinBase
 
   ngOnInit() {
     this._focusMonitor
-        .monitor(this._elementRef.nativeElement, true)
+        .monitor(this._elementRef, true)
         .subscribe((origin: FocusOrigin) => {
           this._isActive = !!origin && origin !== 'keyboard';
           this._changeDetectorRef.detectChanges();
@@ -457,7 +478,7 @@ export class MatSlider extends _MatSliderMixinBase
   }
 
   ngOnDestroy() {
-    this._focusMonitor.stopMonitoring(this._elementRef.nativeElement);
+    this._focusMonitor.stopMonitoring(this._elementRef);
     this._dirChangeSubscription.unsubscribe();
   }
 
@@ -576,14 +597,14 @@ export class MatSlider extends _MatSliderMixinBase
         // expect left to mean increment. Therefore we flip the meaning of the side arrow keys for
         // RTL. For inverted sliders we prefer a good a11y experience to having it "look right" for
         // sighted users, therefore we do not swap the meaning.
-        this._increment(this._direction == 'rtl' ? 1 : -1);
+        this._increment(this._getDirection() == 'rtl' ? 1 : -1);
         break;
       case UP_ARROW:
         this._increment(1);
         break;
       case RIGHT_ARROW:
         // See comment on LEFT_ARROW about the conditions under which we flip the meaning.
-        this._increment(this._direction == 'rtl' ? -1 : 1);
+        this._increment(this._getDirection() == 'rtl' ? -1 : 1);
         break;
       case DOWN_ARROW:
         this._increment(-1);
@@ -625,7 +646,7 @@ export class MatSlider extends _MatSliderMixinBase
     // The exact value is calculated from the event and used to find the closest snap value.
     let percent = this._clamp((posComponent - offset) / size);
 
-    if (this._invertMouseCoords) {
+    if (this._shouldInvertMouseCoords()) {
       percent = 1 - percent;
     }
 
@@ -638,17 +659,11 @@ export class MatSlider extends _MatSliderMixinBase
     } else if (percent === 1) {
       this.value = this.max;
     } else {
-      let exactValue = this._calculateValue(percent);
+      const exactValue = this._calculateValue(percent);
 
       // This calculation finds the closest step by finding the closest
       // whole number divisible by the step relative to the min.
-      let closestValue = Math.round((exactValue - this.min) / this.step) * this.step + this.min;
-
-      // If we've got a step with a decimal, we may end up with something like 33.300000000000004.
-      // Truncate the value to ensure that it matches the label and to make it easier to work with.
-      if (this._roundToDecimal) {
-        closestValue = parseFloat(closestValue.toFixed(this._roundToDecimal));
-      }
+      const closestValue = Math.round((exactValue - this.min) / this.step) * this.step + this.min;
 
       // The value needs to snap to the min and max.
       this.value = this._clamp(closestValue, this.min, this.max);
@@ -658,6 +673,7 @@ export class MatSlider extends _MatSliderMixinBase
   /** Emits a change event if the current value is different from the last emitted value. */
   private _emitChangeEvent() {
     this._controlValueAccessorChangeFn(this.value);
+    this.valueChange.emit(this.value);
     this.change.emit(this._createChangeEvent());
   }
 
@@ -739,7 +755,7 @@ export class MatSlider extends _MatSliderMixinBase
   }
 
   /**
-   * Registers a callback to eb triggered when the value has changed.
+   * Registers a callback to be triggered when the value has changed.
    * Implemented as part of ControlValueAccessor.
    * @param fn Callback to be registered.
    */

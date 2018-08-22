@@ -10,7 +10,6 @@ import {Direction} from '@angular/cdk/bidi';
 import {CdkScrollable, ViewportRuler} from '@angular/cdk/scrolling';
 import {ElementRef} from '@angular/core';
 import {Observable} from 'rxjs';
-import {OverlayRef} from '../overlay-ref';
 import {
   ConnectedOverlayPositionChange,
   ConnectionPositionPair,
@@ -20,7 +19,7 @@ import {
 import {FlexibleConnectedPositionStrategy} from './flexible-connected-position-strategy';
 import {PositionStrategy} from './position-strategy';
 import {Platform} from '@angular/cdk/platform';
-
+import {OverlayReference} from '../overlay-reference';
 
 /**
  * A strategy for positioning overlays. Using this strategy, an overlay is given an
@@ -29,7 +28,7 @@ import {Platform} from '@angular/cdk/platform';
  * a basic dropdown is connecting the bottom-left corner of the origin to the top-left corner
  * of the overlay.
  * @deprecated Use `FlexibleConnectedPositionStrategy` instead.
- * @deletion-target 7.0.0
+ * @breaking-change 7.0.0
  */
 export class ConnectedPositionStrategy implements PositionStrategy {
   /**
@@ -39,7 +38,7 @@ export class ConnectedPositionStrategy implements PositionStrategy {
   _positionStrategy: FlexibleConnectedPositionStrategy;
 
   /** The overlay to which this strategy is attached. */
-  private _overlayRef: OverlayRef;
+  private _overlayRef: OverlayReference;
 
   private _direction: Direction | null;
 
@@ -62,7 +61,7 @@ export class ConnectedPositionStrategy implements PositionStrategy {
       connectedTo: ElementRef,
       viewportRuler: ViewportRuler,
       document: Document,
-      // @deletion-target 7.0.0 `platform` parameter to be made required.
+      // @breaking-change 7.0.0 `platform` parameter to be made required.
       platform?: Platform) {
 
     // Since the `ConnectedPositionStrategy` is deprecated and we don't want to maintain
@@ -84,7 +83,7 @@ export class ConnectedPositionStrategy implements PositionStrategy {
   }
 
   /** Attach this position strategy to an overlay. */
-  attach(overlayRef: OverlayRef): void {
+  attach(overlayRef: OverlayReference): void {
     this._overlayRef = overlayRef;
     this._positionStrategy.attach(overlayRef);
 

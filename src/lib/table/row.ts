@@ -10,7 +10,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   Directive,
-  IterableDiffers, TemplateRef,
   ViewEncapsulation
 } from '@angular/core';
 import {
@@ -21,6 +20,11 @@ import {
   CdkRowDef,
 } from '@angular/cdk/table';
 
+// TODO(devversion): workaround for https://github.com/angular/material2/issues/12760
+export const _CdkHeaderRowDef = CdkHeaderRowDef;
+export const _CdkFooterRowDef = CdkFooterRowDef;
+export const _CdkRowDef = CdkRowDef;
+
 /**
  * Header row definition for the mat-table.
  * Captures the header row's template and other header properties such as the columns to display.
@@ -28,14 +32,9 @@ import {
 @Directive({
   selector: '[matHeaderRowDef]',
   providers: [{provide: CdkHeaderRowDef, useExisting: MatHeaderRowDef}],
-  inputs: ['columns: matHeaderRowDef'],
+  inputs: ['columns: matHeaderRowDef', 'sticky: matHeaderRowDefSticky'],
 })
-export class MatHeaderRowDef extends CdkHeaderRowDef {
-  // TODO(andrewseguin): Remove this constructor after compiler-cli is updated; see issue #9329
-  constructor(template: TemplateRef<any>, _differs: IterableDiffers) {
-    super(template, _differs);
-  }
-}
+export class MatHeaderRowDef extends _CdkHeaderRowDef {}
 
 /**
  * Footer row definition for the mat-table.
@@ -44,14 +43,9 @@ export class MatHeaderRowDef extends CdkHeaderRowDef {
 @Directive({
   selector: '[matFooterRowDef]',
   providers: [{provide: CdkFooterRowDef, useExisting: MatFooterRowDef}],
-  inputs: ['columns: matFooterRowDef'],
+  inputs: ['columns: matFooterRowDef', 'sticky: matFooterRowDefSticky'],
 })
-export class MatFooterRowDef extends CdkFooterRowDef {
-  // TODO(andrewseguin): Remove this constructor after compiler-cli is updated; see issue #9329
-  constructor(template: TemplateRef<any>, _differs: IterableDiffers) {
-    super(template, _differs);
-  }
-}
+export class MatFooterRowDef extends _CdkFooterRowDef {}
 
 /**
  * Data row definition for the mat-table.
@@ -63,12 +57,7 @@ export class MatFooterRowDef extends CdkFooterRowDef {
   providers: [{provide: CdkRowDef, useExisting: MatRowDef}],
   inputs: ['columns: matRowDefColumns', 'when: matRowDefWhen'],
 })
-export class MatRowDef<T> extends CdkRowDef<T> {
-  // TODO(andrewseguin): Remove this constructor after compiler-cli is updated; see issue #9329
-  constructor(template: TemplateRef<any>, _differs: IterableDiffers) {
-    super(template, _differs);
-  }
-}
+export class MatRowDef<T> extends _CdkRowDef<T> {}
 
 /** Footer template container that contains the cell outlet. Adds the right class and role. */
 @Component({
@@ -82,6 +71,7 @@ export class MatRowDef<T> extends CdkRowDef<T> {
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   exportAs: 'matHeaderRow',
+  providers: [{provide: CdkHeaderRow, useExisting: MatHeaderRow}],
 })
 export class MatHeaderRow extends CdkHeaderRow { }
 
@@ -97,6 +87,7 @@ export class MatHeaderRow extends CdkHeaderRow { }
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   exportAs: 'matFooterRow',
+  providers: [{provide: CdkFooterRow, useExisting: MatFooterRow}],
 })
 export class MatFooterRow extends CdkFooterRow { }
 
@@ -112,5 +103,6 @@ export class MatFooterRow extends CdkFooterRow { }
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   exportAs: 'matRow',
+  providers: [{provide: CdkRow, useExisting: MatRow}],
 })
 export class MatRow extends CdkRow { }
