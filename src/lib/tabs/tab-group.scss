@@ -1,6 +1,6 @@
 @import '../core/style/variables';
 @import '../core/style/layout-common';
-@import 'tabs-common';
+@import './tabs-common';
 
 .mat-tab-group {
   display: flex;
@@ -29,7 +29,8 @@
   }
 }
 
-.mat-tab-group[mat-stretch-tabs] .mat-tab-label {
+// Note that we only want to target direct descendant tabs.
+.mat-tab-group[mat-stretch-tabs] > .mat-tab-header .mat-tab-label {
   flex-basis: 0;
   flex-grow: 1;
 }

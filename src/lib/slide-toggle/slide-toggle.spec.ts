@@ -1,3 +1,4 @@
+import {BidiModule, Direction} from '@angular/cdk/bidi';
 import {MutationObserverFactory} from '@angular/cdk/observers';
 import {dispatchFakeEvent} from '@angular/cdk/testing';
 import {Component} from '@angular/core';
@@ -10,11 +11,10 @@ import {
   tick,
 } from '@angular/core/testing';
 import {FormControl, FormsModule, NgModel, ReactiveFormsModule} from '@angular/forms';
+import {TestGestureConfig} from '@angular/material/testing';
 import {By, HAMMER_GESTURE_CONFIG} from '@angular/platform-browser';
-import {BidiModule, Direction} from '@angular/cdk/bidi';
-import {TestGestureConfig} from '../slider/test-gesture-config';
-import {MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS} from './slide-toggle-config';
 import {MatSlideToggle, MatSlideToggleChange, MatSlideToggleModule} from './index';
+import {MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS} from './slide-toggle-config';
 
 describe('MatSlideToggle without forms', () => {
   let gestureConfig: TestGestureConfig;
@@ -29,7 +29,9 @@ describe('MatSlideToggle without forms', () => {
       declarations: [
         SlideToggleBasic,
         SlideToggleWithTabindexAttr,
-        SlideToggleWithoutLabel
+        SlideToggleWithoutLabel,
+        SlideToggleProjectedLabel,
+        TextBindingComponent,
       ],
       providers: [
         {provide: HAMMER_GESTURE_CONFIG, useFactory: () => gestureConfig = new TestGestureConfig()},
@@ -247,6 +249,12 @@ describe('MatSlideToggle without forms', () => {
       expect(inputElement.hasAttribute('aria-labelledby')).toBeFalsy();
     });
 
+    it('should set the `for` attribute to the id of the input element', () => {
+      expect(labelElement.getAttribute('for')).toBeTruthy();
+      expect(inputElement.getAttribute('id')).toBeTruthy();
+      expect(labelElement.getAttribute('for')).toBe(inputElement.getAttribute('id'));
+    });
+
     it('should emit the new values properly', fakeAsync(() => {
       labelElement.click();
       fixture.detectChanges();
@@ -286,6 +294,15 @@ describe('MatSlideToggle without forms', () => {
       expect(document.activeElement).not.toBe(inputElement);
 
       slideToggle.focus();
+      fixture.detectChanges();
+
+      expect(document.activeElement).toBe(inputElement);
+    });
+
+    it('should focus on underlying input element when the host is focused', () => {
+      expect(document.activeElement).not.toBe(inputElement);
+
+      slideToggleElement.focus();
       fixture.detectChanges();
 
       expect(document.activeElement).toBe(inputElement);
@@ -345,6 +362,15 @@ describe('MatSlideToggle without forms', () => {
 
       expect(slideToggle.tabIndex)
         .toBe(5, 'Expected tabIndex property to have been set based on the native attribute');
+    }));
+
+    it('should clear the tabindex from the host element', fakeAsync(() => {
+      const fixture = TestBed.createComponent(SlideToggleWithTabindexAttr);
+
+      fixture.detectChanges();
+
+      const slideToggle = fixture.debugElement.query(By.directive(MatSlideToggle)).nativeElement;
+      expect(slideToggle.getAttribute('tabindex')).toBe('-1');
     }));
   });
 
@@ -571,7 +597,7 @@ describe('MatSlideToggle without forms', () => {
       expect(slideThumbContainer.classList).not.toContain('mat-dragging');
     }));
 
-    it('should should emit a change event after drag', fakeAsync(() => {
+    it('should emit a change event after drag', fakeAsync(() => {
       expect(slideToggle.checked).toBe(false);
 
       gestureConfig.emitEventForElement('slidestart', slideThumbContainer);
@@ -657,7 +683,6 @@ describe('MatSlideToggle without forms', () => {
   describe('without label', () => {
     let fixture: ComponentFixture<SlideToggleWithoutLabel>;
     let testComponent: SlideToggleWithoutLabel;
-    let slideToggleElement: HTMLElement;
     let slideToggleBarElement: HTMLElement;
 
     beforeEach(() => {
@@ -666,7 +691,6 @@ describe('MatSlideToggle without forms', () => {
       const slideToggleDebugEl = fixture.debugElement.query(By.directive(MatSlideToggle));
 
       testComponent = fixture.componentInstance;
-      slideToggleElement = slideToggleDebugEl.nativeElement;
       slideToggleBarElement = slideToggleDebugEl
           .query(By.css('.mat-slide-toggle-bar')).nativeElement;
     });
@@ -697,9 +721,32 @@ describe('MatSlideToggle without forms', () => {
       flushMutationObserver();
       fixture.detectChanges();
 
-      expect(slideToggleElement.classList)
+      expect(slideToggleBarElement.classList)
         .not.toContain('mat-slide-toggle-bar-no-side-margin');
     }));
+  });
+
+  describe('label margin', () => {
+    let fixture: ComponentFixture<SlideToggleProjectedLabel>;
+    let slideToggleBarElement: HTMLElement;
+
+    beforeEach(() => {
+      fixture = TestBed.createComponent(SlideToggleProjectedLabel);
+      slideToggleBarElement = fixture.debugElement
+        .query(By.css('.mat-slide-toggle-bar')).nativeElement;
+
+      fixture.detectChanges();
+    });
+
+    it('should properly update margin if label content is projected', () => {
+      // Do not run the change detection for the fixture manually because we want to verify
+      // that the slide-toggle properly toggles the margin class even if the observe content
+      // output fires outside of the zone.
+      flushMutationObserver();
+
+      expect(slideToggleBarElement.classList).not
+        .toContain('mat-slide-toggle-bar-no-side-margin');
+    });
   });
 });
 
@@ -1086,4 +1133,17 @@ class SlideToggleWithoutLabel {
 class SlideToggleWithModelAndChangeEvent {
   checked: boolean;
   onChange: () => void = () => {};
+}
+
+@Component({
+  template: `<mat-slide-toggle><some-text></some-text></mat-slide-toggle>`
+})
+class SlideToggleProjectedLabel {}
+
+@Component({
+  selector: 'some-text',
+  template: `<span>{{text}}</span>`
+})
+class TextBindingComponent {
+  text: string = 'Some text';
 }

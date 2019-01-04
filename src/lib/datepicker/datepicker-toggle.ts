@@ -9,6 +9,7 @@
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {
   AfterContentInit,
+  Attribute,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -19,7 +20,9 @@ import {
   OnDestroy,
   SimpleChanges,
   ViewEncapsulation,
+  ViewChild,
 } from '@angular/core';
+import {MatButton} from '@angular/material/button';
 import {merge, of as observableOf, Subscription} from 'rxjs';
 import {MatDatepicker} from './datepicker';
 import {MatDatepickerIntl} from './datepicker-intl';
@@ -39,9 +42,13 @@ export class MatDatepickerToggleIcon {}
   styleUrls: ['datepicker-toggle.css'],
   host: {
     'class': 'mat-datepicker-toggle',
+    // Always set the tabindex to -1 so that it doesn't overlap with any custom tabindex the
+    // consumer may have provided, while still being able to receive focus.
+    '[attr.tabindex]': '-1',
     '[class.mat-datepicker-toggle-active]': 'datepicker && datepicker.opened',
     '[class.mat-accent]': 'datepicker && datepicker.color === "accent"',
     '[class.mat-warn]': 'datepicker && datepicker.color === "warn"',
+    '(focus)': '_button.focus()',
   },
   exportAs: 'matDatepickerToggle',
   encapsulation: ViewEncapsulation.None,
@@ -53,6 +60,9 @@ export class MatDatepickerToggle<D> implements AfterContentInit, OnChanges, OnDe
   /** Datepicker instance that the button will toggle. */
   @Input('for') datepicker: MatDatepicker<D>;
 
+  /** Tabindex for the toggle. */
+  @Input() tabIndex: number | null;
+
   /** Whether the toggle button is disabled. */
   @Input()
   get disabled(): boolean {
@@ -63,10 +73,23 @@ export class MatDatepickerToggle<D> implements AfterContentInit, OnChanges, OnDe
   }
   private _disabled: boolean;
 
+  /** Whether ripples on the toggle should be disabled. */
+  @Input() disableRipple: boolean;
+
   /** Custom icon set by the consumer. */
   @ContentChild(MatDatepickerToggleIcon) _customIcon: MatDatepickerToggleIcon;
 
-  constructor(public _intl: MatDatepickerIntl, private _changeDetectorRef: ChangeDetectorRef) {}
+  /** Underlying button element. */
+  @ViewChild('button') _button: MatButton;
+
+  constructor(
+    public _intl: MatDatepickerIntl,
+    private _changeDetectorRef: ChangeDetectorRef,
+    @Attribute('tabindex') defaultTabIndex: string) {
+
+    const parsedTabIndex = Number(defaultTabIndex);
+    this.tabIndex = (parsedTabIndex || parsedTabIndex === 0) ? parsedTabIndex : null;
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes.datepicker) {

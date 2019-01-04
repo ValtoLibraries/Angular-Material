@@ -7,7 +7,7 @@
  */
 
 import {Inject, Injectable, Optional, InjectionToken} from '@angular/core';
-import {DateAdapter, MAT_DATE_LOCALE} from '@angular/material';
+import {DateAdapter, MAT_DATE_LOCALE} from '@angular/material/core';
 // Depending on whether rollup is used, moment needs to be imported differently.
 // Since Moment.js doesn't have a default export, we normally need to import using the `* as`
 // syntax. However, rollup creates a synthetic default module and we thus need to import it using
@@ -211,7 +211,10 @@ export class MomentDateAdapter extends DateAdapter<Moment> {
   deserialize(value: any): Moment | null {
     let date;
     if (value instanceof Date) {
-      date = this._createMoment(value);
+      date = this._createMoment(value).locale(this.locale);
+    } else if (this.isDateInstance(value)) {
+      // Note: assumes that cloning also sets the correct locale.
+      return this.clone(value);
     }
     if (typeof value === 'string') {
       if (!value) {
@@ -220,7 +223,7 @@ export class MomentDateAdapter extends DateAdapter<Moment> {
       date = this._createMoment(value, moment.ISO_8601).locale(this.locale);
     }
     if (date && this.isValid(date)) {
-      return date;
+      return this._createMoment(date).locale(this.locale);
     }
     return super.deserialize(value);
   }

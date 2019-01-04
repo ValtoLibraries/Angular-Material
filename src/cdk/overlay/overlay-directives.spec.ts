@@ -1,6 +1,6 @@
 import {Component, ViewChild} from '@angular/core';
 import {By} from '@angular/platform-browser';
-import {ComponentFixture, TestBed, async, inject} from '@angular/core/testing';
+import {ComponentFixture, TestBed, async, inject, fakeAsync, tick} from '@angular/core/testing';
 import {Directionality} from '@angular/cdk/bidi';
 import {dispatchKeyboardEvent} from '@angular/cdk/testing';
 import {ESCAPE, A} from '@angular/cdk/keycodes';
@@ -210,17 +210,36 @@ describe('Overlay directives', () => {
       fixture.componentInstance.isOpen = true;
       fixture.detectChanges();
 
-      let backdrop = overlayContainerElement.querySelector('.cdk-overlay-backdrop');
-      expect(backdrop).toBeTruthy();
+      expect(overlayContainerElement.querySelector('.cdk-overlay-backdrop')).toBeTruthy();
     });
 
     it('should not create the backdrop by default', () => {
       fixture.componentInstance.isOpen = true;
       fixture.detectChanges();
 
-      let backdrop = overlayContainerElement.querySelector('.cdk-overlay-backdrop');
-      expect(backdrop).toBeNull();
+      expect(overlayContainerElement.querySelector('.cdk-overlay-backdrop')).toBeNull();
     });
+
+    it('should be able to change hasBackdrop after the overlay has been initialized',
+      fakeAsync(() => {
+        // Open once with a backdrop
+        fixture.componentInstance.hasBackdrop = true;
+        fixture.componentInstance.isOpen = true;
+        fixture.detectChanges();
+
+        expect(overlayContainerElement.querySelector('.cdk-overlay-backdrop')).toBeTruthy();
+
+        fixture.componentInstance.isOpen = false;
+        fixture.detectChanges();
+        tick(500);
+
+        // Open again without a backdrop.
+        fixture.componentInstance.hasBackdrop = false;
+        fixture.componentInstance.isOpen = true;
+        fixture.detectChanges();
+
+        expect(overlayContainerElement.querySelector('.cdk-overlay-backdrop')).toBeFalsy();
+      }));
 
     it('should set the custom backdrop class', () => {
       fixture.componentInstance.hasBackdrop = true;
@@ -230,6 +249,15 @@ describe('Overlay directives', () => {
       const backdrop =
           overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
       expect(backdrop.classList).toContain('mat-test-class');
+    });
+
+    it('should set the custom panel class', () => {
+      fixture.componentInstance.isOpen = true;
+      fixture.detectChanges();
+
+      const panel
+        = overlayContainerElement.querySelector('.cdk-overlay-pane') as HTMLElement;
+      expect(panel.classList).toContain('cdk-test-panel-class');
     });
 
     it('should set the offsetX', () => {
@@ -373,12 +401,12 @@ describe('Overlay directives', () => {
     });
 
     it('should allow for flexible positioning to be enabled', () => {
-      expect(fixture.componentInstance.connectedOverlayDirective.flexibleDiemsions).not.toBe(true);
+      expect(fixture.componentInstance.connectedOverlayDirective.flexibleDimensions).not.toBe(true);
 
       fixture.componentInstance.flexibleDimensions = true;
       fixture.detectChanges();
 
-      expect(fixture.componentInstance.connectedOverlayDirective.flexibleDiemsions).toBe(true);
+      expect(fixture.componentInstance.connectedOverlayDirective.flexibleDimensions).toBe(true);
     });
 
     it('should allow for growing after open to be enabled', () => {
@@ -478,6 +506,7 @@ describe('Overlay directives', () => {
             [cdkConnectedOverlayGrowAfterOpen]="growAfterOpen"
             [cdkConnectedOverlayPush]="push"
             cdkConnectedOverlayBackdropClass="mat-test-class"
+            cdkConnectedOverlayPanelClass="cdk-test-panel-class"
             (backdropClick)="backdropClickHandler($event)"
             [cdkConnectedOverlayOffsetX]="offsetX"
             [cdkConnectedOverlayOffsetY]="offsetY"

@@ -23,10 +23,13 @@ import {
   CanColor,
   CanDisable,
   CanDisableRipple,
+  CanColorCtor,
+  CanDisableCtor,
+  CanDisableRippleCtor,
   MatRipple,
   mixinColor,
   mixinDisabled,
-  mixinDisableRipple
+  mixinDisableRipple,
 } from '@angular/material/core';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
 
@@ -52,8 +55,10 @@ const BUTTON_HOST_ATTRIBUTES = [
 export class MatButtonBase {
   constructor(public _elementRef: ElementRef) {}
 }
-export const _MatButtonMixinBase = mixinColor(mixinDisabled(mixinDisableRipple(MatButtonBase)));
 
+export const _MatButtonMixinBase:
+    CanDisableRippleCtor & CanDisableCtor & CanColorCtor & typeof MatButtonBase =
+        mixinColor(mixinDisabled(mixinDisableRipple(MatButtonBase)));
 
 /**
  * Material design button.
@@ -89,12 +94,11 @@ export class MatButton extends _MatButtonMixinBase
   constructor(elementRef: ElementRef,
               /**
                * @deprecated Platform checks for SSR are no longer needed
-               * @breaking-change 7.0.0
+               * @breaking-change 8.0.0
                */
-              // tslint:disable-next-line:no-unused-variable
-              private _platform: Platform,
+              _platform: Platform,
               private _focusMonitor: FocusMonitor,
-              // @breaking-change 7.0.0 `_animationMode` parameter to be made required.
+              // @breaking-change 8.0.0 `_animationMode` parameter to be made required.
               @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string) {
     super(elementRef);
 
@@ -168,7 +172,7 @@ export class MatAnchor extends MatButton {
     platform: Platform,
     focusMonitor: FocusMonitor,
     elementRef: ElementRef,
-    // @breaking-change 7.0.0 `animationMode` parameter to be made required.
+    // @breaking-change 8.0.0 `animationMode` parameter to be made required.
     @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     super(elementRef, platform, focusMonitor, animationMode);
   }

@@ -3,10 +3,10 @@ import {readdirSync, readFileSync, statSync} from 'fs';
 import {task} from 'gulp';
 import {IMinimatch, Minimatch} from 'minimatch';
 import {join} from 'path';
-import {execNodeTask} from '../util/task_helpers';
+import {execNodeTask} from '../util/task-helpers';
 
 /** Glob that matches all SCSS or CSS files that should be linted. */
-const stylesGlob = '+(tools|src)/**/!(*.bundle).+(css|scss)';
+const styleGlob = 'src/**/*.+(css|scss)';
 
 /** List of flags that will passed to the different TSLint tasks. */
 const tsLintBaseFlags = ['-c', 'tslint.json', '--project', './tsconfig.json'];
@@ -21,7 +21,7 @@ task('lint', ['tslint', 'stylelint', 'ownerslint']);
 
 /** Task to lint Angular Material's scss stylesheets. */
 task('stylelint', execNodeTask(
-  'stylelint', [stylesGlob, '--config', 'stylelint-config.json', '--syntax', 'scss']
+  'stylelint', [styleGlob, '--config', 'stylelint-config.json', '--syntax', 'scss']
 ));
 
 /** Task to run TSLint against the e2e/ and src/ directories. */

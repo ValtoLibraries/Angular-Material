@@ -31,7 +31,7 @@ publishPackage() {
 
   buildDir="$(pwd)/dist/releases/${packageName}"
   buildVersion=$(node -pe "require('./package.json').version")
-  branchName=${TRAVIS_BRANCH:-'master'}
+  branchName=${CIRCLE_BRANCH:-'master'}
 
   commitSha=$(git rev-parse --short HEAD)
   commitAuthorName=$(git --no-pager show -s --format='%an' HEAD)
@@ -106,7 +106,7 @@ publishPackage() {
   git add -A
   git commit --allow-empty -m "${buildCommitMessage}"
   git tag "${buildTagName}"
-  git push origin ${branchName} --tags
+  git push origin ${branchName} --tags --force
 
   echo "Published package artifacts for ${packageName}#${buildVersionName} into ${branchName}"
 }

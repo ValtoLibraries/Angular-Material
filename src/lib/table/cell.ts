@@ -15,11 +15,6 @@ import {
   CdkHeaderCellDef,
 } from '@angular/cdk/table';
 
-// TODO(devversion): workaround for https://github.com/angular/material2/issues/12760
-export const _CdkCellDef = CdkCellDef;
-export const _CdkHeaderCellDef = CdkHeaderCellDef;
-export const _CdkFooterCellDef = CdkFooterCellDef;
-
 /**
  * Cell definition for the mat-table.
  * Captures the template of a column's data row cell as well as cell-specific properties.
@@ -28,7 +23,7 @@ export const _CdkFooterCellDef = CdkFooterCellDef;
   selector: '[matCellDef]',
   providers: [{provide: CdkCellDef, useExisting: MatCellDef}]
 })
-export class MatCellDef extends _CdkCellDef {}
+export class MatCellDef extends CdkCellDef {}
 
 /**
  * Header cell definition for the mat-table.
@@ -38,7 +33,7 @@ export class MatCellDef extends _CdkCellDef {}
   selector: '[matHeaderCellDef]',
   providers: [{provide: CdkHeaderCellDef, useExisting: MatHeaderCellDef}]
 })
-export class MatHeaderCellDef extends _CdkHeaderCellDef {}
+export class MatHeaderCellDef extends CdkHeaderCellDef {}
 
 /**
  * Footer cell definition for the mat-table.
@@ -48,7 +43,7 @@ export class MatHeaderCellDef extends _CdkHeaderCellDef {}
   selector: '[matFooterCellDef]',
   providers: [{provide: CdkFooterCellDef, useExisting: MatFooterCellDef}]
 })
-export class MatFooterCellDef extends _CdkFooterCellDef {}
+export class MatFooterCellDef extends CdkFooterCellDef {}
 
 /**
  * Column definition for the mat-table.
@@ -56,7 +51,10 @@ export class MatFooterCellDef extends _CdkFooterCellDef {}
  */
 @Directive({
   selector: '[matColumnDef]',
-  providers: [{provide: CdkColumnDef, useExisting: MatColumnDef}],
+  providers: [
+    {provide: CdkColumnDef, useExisting: MatColumnDef},
+    {provide: 'MAT_SORT_HEADER_COLUMN_DEF', useExisting: MatColumnDef}
+  ],
 })
 export class MatColumnDef extends CdkColumnDef {
   /** Unique name for this column. */
@@ -79,7 +77,7 @@ export class MatColumnDef extends CdkColumnDef {
 })
 export class MatHeaderCell extends CdkHeaderCell {
   constructor(columnDef: CdkColumnDef,
-              elementRef: ElementRef) {
+              elementRef: ElementRef<HTMLElement>) {
     super(columnDef, elementRef);
     elementRef.nativeElement.classList.add(`mat-column-${columnDef.cssClassFriendlyName}`);
   }
@@ -111,7 +109,7 @@ export class MatFooterCell extends CdkFooterCell {
 })
 export class MatCell extends CdkCell {
   constructor(columnDef: CdkColumnDef,
-              elementRef: ElementRef) {
+              elementRef: ElementRef<HTMLElement>) {
     super(columnDef, elementRef);
     elementRef.nativeElement.classList.add(`mat-column-${columnDef.cssClassFriendlyName}`);
   }

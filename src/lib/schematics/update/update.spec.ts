@@ -1,1 +1,0 @@
-describe('material-nav-schematic', () => {});

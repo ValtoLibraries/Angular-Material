@@ -1,5 +1,5 @@
 import {DocCollection, Processor} from 'dgeni';
-import {MethodMemberDoc} from 'dgeni-packages/typescript/api-doc-types/MethodMemberDoc';
+import {MemberDoc} from 'dgeni-packages/typescript/api-doc-types/MemberDoc';
 import {
   decorateDeprecatedDoc,
   getDirectiveSelectors,
@@ -12,14 +12,16 @@ import {
 import {
   CategorizedClassDoc,
   CategorizedClassLikeDoc,
+  CategorizedConstExportDoc,
   CategorizedFunctionExportDoc,
   CategorizedMethodMemberDoc,
   CategorizedPropertyMemberDoc,
+  CategorizedTypeAliasExportDoc,
 } from '../common/dgeni-definitions';
 import {getDirectiveMetadata} from '../common/directive-metadata';
 import {normalizeFunctionParameters} from '../common/normalize-function-parameters';
 import {getInputBindingData, getOutputBindingData} from '../common/property-bindings';
-import {sortCategorizedMembers} from '../common/sort-members';
+import {sortCategorizedMethodMembers, sortCategorizedPropertyMembers} from '../common/sort-members';
 
 
 /**
@@ -42,6 +44,14 @@ export class Categorizer implements Processor {
     docs
       .filter(doc => doc.docType === 'function')
       .forEach(doc => this.decorateFunctionExportDoc(doc));
+
+    docs
+      .filter(doc => doc.docType === 'const')
+      .forEach(doc => this.decorateConstExportDoc(doc));
+
+    docs
+      .filter(doc => doc.docType === 'type-alias')
+      .forEach(doc => this.decorateTypeAliasExportDoc(doc));
   }
 
   /**
@@ -71,8 +81,8 @@ export class Categorizer implements Processor {
     decorateDeprecatedDoc(classLikeDoc);
 
     // Sort members
-    classLikeDoc.methods.sort(sortCategorizedMembers);
-    classLikeDoc.properties.sort(sortCategorizedMembers);
+    classLikeDoc.methods.sort(sortCategorizedMethodMembers);
+    classLikeDoc.properties.sort(sortCategorizedPropertyMembers);
   }
 
   /**
@@ -115,6 +125,22 @@ export class Categorizer implements Processor {
   private decorateFunctionExportDoc(functionDoc: CategorizedFunctionExportDoc) {
     normalizeFunctionParameters(functionDoc);
     decorateDeprecatedDoc(functionDoc);
+  }
+
+  /**
+   * Method that will be called for each const export document. We decorate the const
+   * documents with a property that states whether the constant is deprecated or not.
+   */
+  private decorateConstExportDoc(doc: CategorizedConstExportDoc) {
+    decorateDeprecatedDoc(doc);
+  }
+
+  /**
+   * Method that will be called for each type-alias export document. We decorate the type-alias
+   * documents with a property that states whether the type-alias is deprecated or not.
+   */
+  private decorateTypeAliasExportDoc(doc: CategorizedTypeAliasExportDoc) {
+    decorateDeprecatedDoc(doc);
   }
 
   /**
@@ -162,6 +188,6 @@ export class Categorizer implements Processor {
 }
 
 /** Filters any duplicate classDoc members from an array */
-function filterDuplicateMembers(item: MethodMemberDoc, _index: number, array: MethodMemberDoc[]) {
+function filterDuplicateMembers(item: MemberDoc, _index: number, array: MemberDoc[]) {
   return array.filter((memberDoc) => memberDoc.name === item.name)[0] === item;
 }

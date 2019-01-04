@@ -2,9 +2,14 @@ import {async, TestBed, fakeAsync, tick, ComponentFixture, flush} from '@angular
 import {Component, ViewChild} from '@angular/core';
 import {By} from '@angular/platform-browser';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
-import {MatExpansionModule, MatExpansionPanel} from './index';
+import {
+  MatExpansionModule,
+  MatExpansionPanel,
+  MatExpansionPanelHeader,
+  MAT_EXPANSION_PANEL_DEFAULT_OPTIONS,
+} from './index';
 import {SPACE, ENTER} from '@angular/cdk/keycodes';
-import {dispatchKeyboardEvent} from '@angular/cdk/testing';
+import {dispatchKeyboardEvent, createKeyboardEvent, dispatchEvent} from '@angular/cdk/testing';
 
 
 describe('MatExpansionPanel', () => {
@@ -28,19 +33,16 @@ describe('MatExpansionPanel', () => {
 
   it('should expand and collapse the panel', fakeAsync(() => {
     const fixture = TestBed.createComponent(PanelWithContent);
-    const contentEl = fixture.nativeElement.querySelector('.mat-expansion-panel-content');
     const headerEl = fixture.nativeElement.querySelector('.mat-expansion-panel-header');
     fixture.detectChanges();
 
     expect(headerEl.classList).not.toContain('mat-expanded');
-    expect(contentEl.classList).not.toContain('mat-expanded');
 
     fixture.componentInstance.expanded = true;
     fixture.detectChanges();
     flush();
 
     expect(headerEl.classList).toContain('mat-expanded');
-    expect(contentEl.classList).toContain('mat-expanded');
   }));
 
   it('should be able to render panel content lazily', fakeAsync(() => {
@@ -142,6 +144,24 @@ describe('MatExpansionPanel', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
+  it('should not toggle if a modifier key is pressed', () => {
+    const fixture = TestBed.createComponent(PanelWithContent);
+    const headerEl = fixture.nativeElement.querySelector('.mat-expansion-panel-header');
+
+    spyOn(fixture.componentInstance.panel, 'toggle');
+
+    ['altKey', 'metaKey', 'shiftKey', 'ctrlKey'].forEach(modifier => {
+      const event = createKeyboardEvent('keydown', ENTER);
+      Object.defineProperty(event, modifier, {get: () => true});
+
+      dispatchEvent(headerEl, event);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.panel.toggle).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
+  });
+
   it('should not be able to focus content while closed', fakeAsync(() => {
     const fixture = TestBed.createComponent(PanelWithContent);
     fixture.componentInstance.expanded = true;
@@ -160,6 +180,25 @@ describe('MatExpansionPanel', () => {
 
     button.focus();
     expect(document.activeElement).not.toBe(button, 'Expected button to no longer be focusable.');
+  }));
+
+  it('should restore focus to header if focused element is inside panel on close', fakeAsync(() => {
+    const fixture = TestBed.createComponent(PanelWithContent);
+    fixture.componentInstance.expanded = true;
+    fixture.detectChanges();
+    tick(250);
+
+    const button = fixture.debugElement.query(By.css('button')).nativeElement;
+    const header = fixture.debugElement.query(By.css('mat-expansion-panel-header')).nativeElement;
+
+    button.focus();
+    expect(document.activeElement).toBe(button, 'Expected button to start off focusable.');
+
+    fixture.componentInstance.expanded = false;
+    fixture.detectChanges();
+    tick(250);
+
+    expect(document.activeElement).toBe(header, 'Expected header to be focused.');
   }));
 
   it('should not override the panel margin if it is not inside an accordion', fakeAsync(() => {
@@ -248,23 +287,7 @@ describe('MatExpansionPanel', () => {
     expect(fixture.componentInstance.expanded).toBe(false);
   });
 
-  it('should not set the mat-expanded class until the open animation is done', fakeAsync(() => {
-    const fixture = TestBed.createComponent(PanelWithContent);
-    const contentEl = fixture.nativeElement.querySelector('.mat-expansion-panel-content');
 
-    fixture.detectChanges();
-    expect(contentEl.classList).not.toContain('mat-expanded',
-        'Expected class not to be there on init');
-
-    fixture.componentInstance.expanded = true;
-    fixture.detectChanges();
-    expect(contentEl.classList).not.toContain('mat-expanded',
-        'Expected class not to be added immediately after becoming expanded');
-
-    flush();
-    expect(contentEl.classList).toContain('mat-expanded',
-        'Expected class to be added after the animation has finished');
-  }));
 
   it('should emit events for body expanding and collapsing animations', fakeAsync(() => {
     const fixture = TestBed.createComponent(PanelWithContent);
@@ -286,6 +309,34 @@ describe('MatExpansionPanel', () => {
     expect(afterExpand).toBe(1);
     expect(afterCollapse).toBe(1);
   }));
+
+  it('should be able to set the default options through the injection token', () => {
+    TestBed
+      .resetTestingModule()
+      .configureTestingModule({
+        imports: [MatExpansionModule, NoopAnimationsModule],
+        declarations: [PanelWithTwoWayBinding],
+        providers: [{
+          provide: MAT_EXPANSION_PANEL_DEFAULT_OPTIONS,
+          useValue: {
+            hideToggle: true,
+            expandedHeight: '10px',
+            collapsedHeight: '16px'
+          }
+        }]
+      })
+      .compileComponents();
+
+    const fixture = TestBed.createComponent(PanelWithTwoWayBinding);
+    fixture.detectChanges();
+
+    const panel = fixture.debugElement.query(By.directive(MatExpansionPanel));
+    const header = fixture.debugElement.query(By.directive(MatExpansionPanelHeader));
+
+    expect(panel.componentInstance.hideToggle).toBe(true);
+    expect(header.componentInstance.expandedHeight).toBe('10px');
+    expect(header.componentInstance.collapsedHeight).toBe('16px');
+  });
 
   describe('disabled state', () => {
     let fixture: ComponentFixture<PanelWithContent>;

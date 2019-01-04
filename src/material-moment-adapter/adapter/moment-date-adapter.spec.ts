@@ -8,11 +8,12 @@
 
 import {LOCALE_ID} from '@angular/core';
 import {async, inject, TestBed} from '@angular/core/testing';
-import {DateAdapter, DEC, FEB, JAN, MAR, MAT_DATE_LOCALE} from '@angular/material/core';
-import * as moment from 'moment';
+import {DateAdapter, MAT_DATE_LOCALE} from '@angular/material/core';
+import {DEC, FEB, JAN, MAR} from '@angular/material/testing';
 import {MomentDateModule} from './index';
-import {MomentDateAdapter, MAT_MOMENT_DATE_ADAPTER_OPTIONS} from './moment-date-adapter';
+import {MAT_MOMENT_DATE_ADAPTER_OPTIONS, MomentDateAdapter} from './moment-date-adapter';
 
+import * as moment from 'moment';
 
 describe('MomentDateAdapter', () => {
   let adapter: MomentDateAdapter;
@@ -330,6 +331,19 @@ describe('MomentDateAdapter', () => {
     assertValidDate(adapter.deserialize(new Date(NaN)), false);
     assertValidDate(adapter.deserialize(moment()), true);
     assertValidDate(adapter.deserialize(moment.invalid()), false);
+  });
+
+  it('should clone the date when deserializing a Moment date', () => {
+    let date = moment([2017, JAN, 1]);
+    expect(adapter.deserialize(date)!.format()).toEqual(date.format());
+    expect(adapter.deserialize(date)).not.toBe(date);
+  });
+
+  it('should deserialize dates with the correct locale', () => {
+    adapter.setLocale('ja');
+    expect(adapter.deserialize('1985-04-12T23:20:50.52Z')!.locale()).toBe('ja');
+    expect(adapter.deserialize(new Date())!.locale()).toBe('ja');
+    expect(adapter.deserialize(moment())!.locale()).toBe('ja');
   });
 
   it('setLocale should not modify global moment locale', () => {

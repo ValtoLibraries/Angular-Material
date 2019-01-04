@@ -18,6 +18,7 @@ import {
   PAGE_UP,
   RIGHT_ARROW,
   UP_ARROW,
+  hasModifierKey,
 } from '@angular/cdk/keycodes';
 import {
   Attribute,
@@ -27,6 +28,7 @@ import {
   ElementRef,
   EventEmitter,
   forwardRef,
+  Inject,
   Input,
   OnDestroy,
   OnInit,
@@ -34,20 +36,22 @@ import {
   Output,
   ViewChild,
   ViewEncapsulation,
-  Inject,
 } from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 import {
   CanColor,
+  CanColorCtor,
   CanDisable,
+  CanDisableCtor,
   HammerInput,
   HasTabIndex,
+  HasTabIndexCtor,
   mixinColor,
   mixinDisabled,
   mixinTabIndex,
 } from '@angular/material/core';
-import {Subscription} from 'rxjs';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
+import {Subscription} from 'rxjs';
 
 /**
  * Visually, a 30px separation between tick marks looks best. This is very subjective but it is
@@ -67,6 +71,7 @@ const MIN_VALUE_ACTIVE_THUMB_GAP = 10;
 /**
  * Provider Expression that allows mat-slider to register as a ControlValueAccessor.
  * This allows it to support [(ngModel)] and [formControl].
+ * @docs-private
  */
 export const MAT_SLIDER_VALUE_ACCESSOR: any = {
   provide: NG_VALUE_ACCESSOR,
@@ -89,8 +94,12 @@ export class MatSliderChange {
 export class MatSliderBase {
   constructor(public _elementRef: ElementRef) {}
 }
-export const _MatSliderMixinBase =
-  mixinTabIndex(mixinColor(mixinDisabled(MatSliderBase), 'accent'));
+export const _MatSliderMixinBase:
+    HasTabIndexCtor &
+    CanColorCtor &
+    CanDisableCtor &
+    typeof MatSliderBase =
+        mixinTabIndex(mixinColor(mixinDisabled(MatSliderBase), 'accent'));
 
 /**
  * Allows users to select from a range of values by moving the slider thumb. It is similar in
@@ -104,7 +113,7 @@ export const _MatSliderMixinBase =
   host: {
     '(focus)': '_onFocus()',
     '(blur)': '_onBlur()',
-    '(click)': '_onClick($event)',
+    '(mousedown)': '_onMousedown($event)',
     '(keydown)': '_onKeydown($event)',
     '(keyup)': '_onKeyup()',
     '(mouseenter)': '_onMouseenter()',
@@ -456,7 +465,7 @@ export class MatSlider extends _MatSliderMixinBase
               private _changeDetectorRef: ChangeDetectorRef,
               @Optional() private _dir: Directionality,
               @Attribute('tabindex') tabIndex: string,
-              // @breaking-change 7.0.0 `_animationMode` parameter to be made required.
+              // @breaking-change 8.0.0 `_animationMode` parameter to be made required.
               @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string) {
     super(elementRef);
 
@@ -493,12 +502,14 @@ export class MatSlider extends _MatSliderMixinBase
     this._updateTickIntervalPercent();
   }
 
-  _onClick(event: MouseEvent) {
-    if (this.disabled) {
+  _onMousedown(event: MouseEvent) {
+    // Don't do anything if the slider is disabled or the
+    // user is using anything other than the main mouse button.
+    if (this.disabled || event.button !== 0) {
       return;
     }
 
-    let oldValue = this.value;
+    const oldValue = this.value;
     this._isSliding = false;
     this._focusHostElement();
     this._updateValueFromPosition({x: event.clientX, y: event.clientY});
@@ -572,9 +583,11 @@ export class MatSlider extends _MatSliderMixinBase
   }
 
   _onKeydown(event: KeyboardEvent) {
-    if (this.disabled) { return; }
+    if (this.disabled || hasModifierKey(event)) {
+      return;
+    }
 
-    let oldValue = this.value;
+    const oldValue = this.value;
 
     switch (event.keyCode) {
       case PAGE_UP:

@@ -2,7 +2,7 @@ import {inject, async, fakeAsync, tick, TestBed} from '@angular/core/testing';
 import {SafeResourceUrl, DomSanitizer, SafeHtml} from '@angular/platform-browser';
 import {HttpClientTestingModule, HttpTestingController} from '@angular/common/http/testing';
 import {Component} from '@angular/core';
-import {MatIconModule} from './index';
+import {MatIconModule, MAT_ICON_LOCATION} from './index';
 import {MatIconRegistry, getMatIconNoHttpProviderError} from './icon-registry';
 import {FAKE_SVGS} from './fake-svgs';
 import {wrappedErrorMessage} from '@angular/cdk/testing';
@@ -39,8 +39,11 @@ function verifyPathChildElement(element: Element, attributeValue: string): void 
 
 
 describe('MatIcon', () => {
+  let fakePath: string;
 
   beforeEach(async(() => {
+    fakePath = '/fake-path';
+
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, MatIconModule],
       declarations: [
@@ -52,7 +55,11 @@ describe('MatIcon', () => {
         IconWithBindingAndNgIf,
         InlineIcon,
         SvgIconWithUserContent,
-      ]
+      ],
+      providers: [{
+        provide: MAT_ICON_LOCATION,
+        useValue: {getPathname: () => fakePath}
+      }]
     });
 
     TestBed.compileComponents();
@@ -78,6 +85,19 @@ describe('MatIcon', () => {
     testComponent.iconColor = 'primary';
     fixture.detectChanges();
     expect(sortedClassNames(matIconElement)).toEqual(['mat-icon', 'mat-primary', 'material-icons']);
+  });
+
+  it('should apply a class if there is no color', () => {
+    let fixture = TestBed.createComponent(IconWithColor);
+
+    const testComponent = fixture.componentInstance;
+    const matIconElement = fixture.debugElement.nativeElement.querySelector('mat-icon');
+    testComponent.iconName = 'home';
+    testComponent.iconColor = '';
+    fixture.detectChanges();
+
+    expect(sortedClassNames(matIconElement))
+        .toEqual(['mat-icon', 'mat-icon-no-color', 'material-icons']);
   });
 
   it('should mark mat-icon as aria-hidden by default', () => {
@@ -114,7 +134,8 @@ describe('MatIcon', () => {
       const matIconElement = fixture.debugElement.nativeElement.querySelector('mat-icon');
       testComponent.iconName = 'home';
       fixture.detectChanges();
-      expect(sortedClassNames(matIconElement)).toEqual(['mat-icon', 'material-icons']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['mat-icon', 'mat-icon-no-color', 'material-icons']);
     });
 
     it('should use alternate icon font if set', () => {
@@ -126,7 +147,7 @@ describe('MatIcon', () => {
       const matIconElement = fixture.debugElement.nativeElement.querySelector('mat-icon');
       testComponent.iconName = 'home';
       fixture.detectChanges();
-      expect(sortedClassNames(matIconElement)).toEqual(['mat-icon', 'myfont']);
+      expect(sortedClassNames(matIconElement)).toEqual(['mat-icon', 'mat-icon-no-color', 'myfont']);
     });
   });
 
@@ -580,6 +601,87 @@ describe('MatIcon', () => {
 
       tick();
     }));
+
+    it('should prepend the current path to attributes with `url()` references', fakeAsync(() => {
+      iconRegistry.addSvgIconLiteral('fido', trustHtml(`
+        <svg>
+          <filter id="blur">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+          </filter>
+
+          <circle cx="170" cy="60" r="50" fill="green" filter="url('#blur')" />
+        </svg>
+      `));
+
+      const fixture = TestBed.createComponent(IconFromSvgName);
+      fixture.componentInstance.iconName = 'fido';
+      fixture.detectChanges();
+      const circle = fixture.nativeElement.querySelector('mat-icon svg circle');
+
+      // We use a regex to match here, rather than the exact value, because different browsers
+      // return different quotes through `getAttribute`, while some even omit the quotes altogether.
+      expect(circle.getAttribute('filter')).toMatch(/^url\(['"]?\/fake-path#blur['"]?\)$/);
+
+      tick();
+    }));
+
+    it('should use latest path when prefixing the `url()` references', fakeAsync(() => {
+      iconRegistry.addSvgIconLiteral('fido', trustHtml(`
+        <svg>
+          <filter id="blur">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+          </filter>
+
+          <circle cx="170" cy="60" r="50" fill="green" filter="url('#blur')" />
+        </svg>
+      `));
+
+      let fixture = TestBed.createComponent(IconFromSvgName);
+      fixture.componentInstance.iconName = 'fido';
+      fixture.detectChanges();
+      let circle = fixture.nativeElement.querySelector('mat-icon svg circle');
+
+      expect(circle.getAttribute('filter')).toMatch(/^url\(['"]?\/fake-path#blur['"]?\)$/);
+      tick();
+      fixture.destroy();
+
+      fakePath = '/another-fake-path';
+      fixture = TestBed.createComponent(IconFromSvgName);
+      fixture.componentInstance.iconName = 'fido';
+      fixture.detectChanges();
+      circle = fixture.nativeElement.querySelector('mat-icon svg circle');
+
+      expect(circle.getAttribute('filter')).toMatch(/^url\(['"]?\/another-fake-path#blur['"]?\)$/);
+      tick();
+    }));
+
+    it('should update the `url()` references when the path changes', fakeAsync(() => {
+      iconRegistry.addSvgIconLiteral('fido', trustHtml(`
+        <svg>
+          <filter id="blur">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+          </filter>
+
+          <circle cx="170" cy="60" r="50" fill="green" filter="url('#blur')" />
+        </svg>
+      `));
+
+      const fixture = TestBed.createComponent(IconFromSvgName);
+      fixture.componentInstance.iconName = 'fido';
+      fixture.detectChanges();
+      const circle = fixture.nativeElement.querySelector('mat-icon svg circle');
+
+      // We use a regex to match here, rather than the exact value, because different browsers
+      // return different quotes through `getAttribute`, while some even omit the quotes altogether.
+      expect(circle.getAttribute('filter')).toMatch(/^url\(['"]?\/fake-path#blur['"]?\)$/);
+      tick();
+
+      fakePath = '/different-path';
+      fixture.detectChanges();
+
+      expect(circle.getAttribute('filter')).toMatch(/^url\(['"]?\/different-path#blur['"]?\)$/);
+    }));
+
   });
 
   describe('custom fonts', () => {
@@ -594,17 +696,20 @@ describe('MatIcon', () => {
       testComponent.fontSet = 'f1';
       testComponent.fontIcon = 'house';
       fixture.detectChanges();
-      expect(sortedClassNames(matIconElement)).toEqual(['font1', 'house', 'mat-icon']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['font1', 'house', 'mat-icon', 'mat-icon-no-color']);
 
       testComponent.fontSet = 'f2';
       testComponent.fontIcon = 'igloo';
       fixture.detectChanges();
-      expect(sortedClassNames(matIconElement)).toEqual(['f2', 'igloo', 'mat-icon']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['f2', 'igloo', 'mat-icon', 'mat-icon-no-color']);
 
       testComponent.fontSet = 'f3';
       testComponent.fontIcon = 'tent';
       fixture.detectChanges();
-      expect(sortedClassNames(matIconElement)).toEqual(['f3', 'mat-icon', 'tent']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['f3', 'mat-icon', 'mat-icon-no-color', 'tent']);
     });
 
     it('should handle values with extraneous spaces being passed in to `fontSet`', () => {
@@ -616,14 +721,15 @@ describe('MatIcon', () => {
         fixture.detectChanges();
       }).not.toThrow();
 
-      expect(sortedClassNames(matIconElement)).toEqual(['font', 'mat-icon']);
+      expect(sortedClassNames(matIconElement)).toEqual(['font', 'mat-icon', 'mat-icon-no-color']);
 
       expect(() => {
         fixture.componentInstance.fontSet = ' changed';
         fixture.detectChanges();
       }).not.toThrow();
 
-      expect(sortedClassNames(matIconElement)).toEqual(['changed', 'mat-icon']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['changed', 'mat-icon', 'mat-icon-no-color']);
     });
 
     it('should handle values with extraneous spaces being passed in to `fontIcon`', () => {
@@ -635,14 +741,16 @@ describe('MatIcon', () => {
         fixture.detectChanges();
       }).not.toThrow();
 
-      expect(sortedClassNames(matIconElement)).toEqual(['font', 'mat-icon', 'material-icons']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['font', 'mat-icon', 'mat-icon-no-color', 'material-icons']);
 
       expect(() => {
         fixture.componentInstance.fontIcon = ' changed';
         fixture.detectChanges();
       }).not.toThrow();
 
-      expect(sortedClassNames(matIconElement)).toEqual(['changed', 'mat-icon', 'material-icons']);
+      expect(sortedClassNames(matIconElement))
+          .toEqual(['changed', 'mat-icon', 'mat-icon-no-color', 'material-icons']);
     });
 
   });

@@ -1,15 +1,45 @@
 package(default_visibility=["//visibility:public"])
-load("@build_bazel_rules_typescript//:defs.bzl", "ts_library")
-load("@angular//:index.bzl", "ng_package")
-load("//:packages.bzl", "ROLLUP_GLOBALS", "VERSION_PLACEHOLDER_REPLACEMENTS")
 
+load("//tools:defaults.bzl", "ng_module", "ng_package", "ng_web_test_suite", "ng_test_library")
+load("//:packages.bzl", "ROLLUP_GLOBALS")
 
-ts_library(
+ng_module(
   name = "material-moment-adapter",
   srcs = glob(["**/*.ts"], exclude=["**/*.spec.ts"]),
   module_name = "@angular/material-moment-adapter",
-  deps = ["//src/lib:material"],
-  tsconfig = "//src/material-moment-adapter:tsconfig-build.json",
+  deps = [
+    "@angular//packages/core",
+    "@matdeps//moment",
+    "//src/lib/core",
+  ],
+  # Explicitly specify the tsconfig that is also used by Gulp. We need to explicitly use this
+  # tsconfig because in order to import Moment with TypeScript, we need some special options
+  # enabled.
+  tsconfig = ":tsconfig-build.json",
+)
+
+ng_test_library(
+  name = "moment_adapter_test_sources",
+  srcs = glob(["**/*.spec.ts"]),
+  deps = [
+    "//src/lib/core",
+    "//src/lib/testing",
+    "@matdeps//moment",
+    ":material-moment-adapter",
+  ],
+)
+
+ng_web_test_suite(
+  name = "unit_tests",
+  deps = [
+    ":require-config.js",
+    ":moment_adapter_test_sources"
+  ],
+  # We need to load Moment statically since it is not a named AMD module and needs to
+  # be manually configured through "require.js" which is used by "ts_web_test_suite".
+  static_files = [
+    "@matdeps//moment",
+  ],
 )
 
 ng_package(
@@ -17,7 +47,7 @@ ng_package(
   srcs = ["package.json"],
   entry_point = "src/material-moment-adapter/public_api.js",
   globals = ROLLUP_GLOBALS,
-  replacements = VERSION_PLACEHOLDER_REPLACEMENTS,
   deps = [":material-moment-adapter"],
-  tags = ["publish"],
+  # TODO(devversion): re-enable once we have set up the proper compiler for the ng_package
+  tags = ["manual"],
 )

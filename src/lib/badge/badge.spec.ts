@@ -1,5 +1,5 @@
 import {ComponentFixture, TestBed, fakeAsync} from '@angular/core/testing';
-import {Component, DebugElement} from '@angular/core';
+import {Component, DebugElement, ViewEncapsulation} from '@angular/core';
 import {By} from '@angular/platform-browser';
 import {MatBadge, MatBadgeModule} from './index';
 import {ThemePalette} from '@angular/material/core';
@@ -140,10 +140,57 @@ describe('MatBadge', () => {
     expect(classList.contains('mat-badge-hidden')).toBe(false);
   });
 
+  it('should apply view encapsulation on create badge content', () => {
+    const badge = badgeNativeElement.querySelector('.mat-badge-content')!;
+    let encapsulationAttr: Attr | undefined;
+
+    for (let i = 0; i < badge.attributes.length; i++) {
+      if (badge.attributes[i].name.startsWith('_ngcontent-')) {
+        encapsulationAttr = badge.attributes[i];
+        break;
+      }
+    }
+
+    expect(encapsulationAttr).toBeTruthy();
+  });
+
+  it('should toggle a class depending on the badge disabled state', () => {
+    const element: HTMLElement = badgeDebugElement.nativeElement;
+
+    expect(element.classList).not.toContain('mat-badge-disabled');
+
+    testComponent.badgeDisabled = true;
+    fixture.detectChanges();
+
+    expect(element.classList).toContain('mat-badge-disabled');
+  });
+
+  it('should update the aria-label if the description changes', () => {
+    const badgeContent = badgeNativeElement.querySelector('.mat-badge-content')!;
+
+    fixture.componentInstance.badgeDescription = 'initial content';
+    fixture.detectChanges();
+
+    expect(badgeContent.getAttribute('aria-label')).toBe('initial content');
+
+    fixture.componentInstance.badgeDescription = 'changed content';
+    fixture.detectChanges();
+
+    expect(badgeContent.getAttribute('aria-label')).toBe('changed content');
+
+    fixture.componentInstance.badgeDescription = '';
+    fixture.detectChanges();
+
+    expect(badgeContent.hasAttribute('aria-label')).toBe(false);
+  });
+
 });
 
 /** Test component that contains a MatBadge. */
 @Component({
+  // Explicitly set the view encapsulation since we have a test that checks for it.
+  encapsulation: ViewEncapsulation.Emulated,
+  styles: ['span { color: hotpink; }'],
   template: `
     <span [matBadge]="badgeContent"
           [matBadgeColor]="badgeColor"
@@ -151,7 +198,8 @@ describe('MatBadge', () => {
           [matBadgeHidden]="badgeHidden"
           [matBadgeSize]="badgeSize"
           [matBadgeOverlap]="badgeOverlap"
-          [matBadgeDescription]="badgeDescription">
+          [matBadgeDescription]="badgeDescription"
+          [matBadgeDisabled]="badgeDisabled">
       home
     </span>
   `
@@ -164,4 +212,5 @@ class BadgeTestApp {
   badgeSize = 'medium';
   badgeOverlap = false;
   badgeDescription: string;
+  badgeDisabled = false;
 }

@@ -1,20 +1,8 @@
+import {ApiDoc} from 'dgeni-packages/typescript/api-doc-types/ApiDoc';
 import {ClassExportDoc} from 'dgeni-packages/typescript/api-doc-types/ClassExportDoc';
-import {PropertyMemberDoc} from 'dgeni-packages/typescript/api-doc-types/PropertyMemberDoc';
 import {MemberDoc} from 'dgeni-packages/typescript/api-doc-types/MemberDoc';
-import {CategorizedClassDoc, DeprecationDoc, HasDecoratorsDoc} from './dgeni-definitions';
-
-/**
- * We want to avoid emitting selectors that are deprecated but don't have a way to mark
- * them as such in the source code. Thus, we maintain a separate blacklist of selectors
- * that should not be emitted in the documentation.
- */
-const SELECTOR_BLACKLIST = new Set([
-  '[portal]',
-  '[portalHost]',
-  'textarea[mat-autosize]',
-  '[overlay-origin]',
-  '[connected-overlay]',
-]);
+import {PropertyMemberDoc} from 'dgeni-packages/typescript/api-doc-types/PropertyMemberDoc';
+import {CategorizedClassDoc, DeprecationInfo, HasDecoratorsDoc} from './dgeni-definitions';
 
 export function isMethod(doc: MemberDoc) {
   return doc.hasOwnProperty('parameters') && !doc.isGetAccessor && !doc.isSetAccessor;
@@ -62,9 +50,7 @@ export function getDirectiveSelectors(classDoc: CategorizedClassDoc) {
   const directiveSelectors: string = classDoc.directiveMetadata.get('selector');
 
   if (directiveSelectors) {
-    // Filter blacklisted selectors and remove line-breaks in resolved selectors.
-    return directiveSelectors.replace(/[\r\n]/g, '').split(/\s*,\s*/)
-      .filter(s => s !== '' && !s.includes('md') && !SELECTOR_BLACKLIST.has(s));
+    return directiveSelectors.replace(/[\r\n]/g, '').split(/\s*,\s*/).filter(s => s !== '');
   }
 }
 
@@ -95,7 +81,7 @@ export function getBreakingChange(doc: any): string | null {
  * Decorates public exposed docs. Creates a property on the doc that indicates whether
  * the item is deprecated or not.
  */
-export function decorateDeprecatedDoc(doc: DeprecationDoc) {
+export function decorateDeprecatedDoc(doc: ApiDoc & DeprecationInfo) {
   doc.isDeprecated = isDeprecatedDoc(doc);
   doc.breakingChange = getBreakingChange(doc);
 
